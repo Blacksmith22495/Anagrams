@@ -114,7 +114,7 @@
 
         <div class="panel score-board">
             <h3>Standings</h3>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">Scores calculate at round-end</p>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">Scores reset every round</p>
             <table class="leaderboard-table">
                 <thead><tr><th>Player</th><th>Score</th></tr></thead>
                 <tbody id="leaderboard-body"></tbody>
@@ -183,7 +183,6 @@
                 document.getElementById('inline-results-panel').style.display = 'none';
             }
             
-            // Sync letters tray if contents updated on active state changes
             let currentSig = state.letters.join("");
             let traySig = Array.from(document.getElementById('letter-tray').children).map(c => c.innerText).join("");
             if(currentSig !== traySig) {
@@ -308,7 +307,7 @@
         }
 
         function shuffleTray() {
-            if(localLetters.includes("?")) return; // Guard logic against shuffling placeholders
+            if(localLetters.includes("?")) return;
             for (let i = localLetters.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [localLetters[i], localLetters[j]] = [localLetters[j], localLetters[i]];
