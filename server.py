@@ -3,48 +3,32 @@ import ssl
 import random
 import time
 from collections import Counter
-import requests
 from flask import Flask, render_template, request, jsonify
 
-try:
-    _create_unverified_https_context = ssl._create_unverified_context
-except AttributeError:
-    pass
-else:
-    ssl._create_default_https_context = _create_unverified_https_context
-
-app = Flask(__name__)
+app = Flask(__name__, template_folder=os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates')))
 app.config['SECRET_KEY'] = os.urandom(24).hex()
 
 VALID_BASE_WORDS = [
     "action", "actors", "advice", "angels", "artist", "assets", "backed", "baking", "beasts", "blames",
     "boards", "brains", "breaks", "brides", "buyers", "cabins", "cables", "candle", "cards", "castle",
     "chains", "chairs", "charms", "chased", "chiefs", "claims", "clans", "clears", "climbs", "coasts",
-    "screws", "crimes", "dances", "dangers", "devils", "dreams", "drivers", "dusty", "earths", "engine"
+    "crews", "crimes", "dances", "dangers", "devils", "dreams", "drivers", "dusty", "earths", "engine"
 ]
 
 FALLBACK_DICTIONARY = {"act", "ace", "aim", "air", "and", "ant", "any", "ape", "apt", "arc", "are"}
 for w in VALID_BASE_WORDS:
     FALLBACK_DICTIONARY.add(w)
 
-WORD_LIST_URL = "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt"
 LOCAL_CACHE_NAME = "dictionary_filtered.txt"
 
 def load_comprehensive_dictionary():
     if os.path.exists(LOCAL_CACHE_NAME):
         try:
             with open(LOCAL_CACHE_NAME, "r", encoding="utf-8") as f:
-                return {line.strip().lower() for line in f if len(line.strip()) > 2}
+                words = {line.strip().lower() for line in f if len(line.strip()) > 2}
+            if len(words) > 100:
+                return words
         except Exception: pass
-    try:
-        response = requests.get(WORD_LIST_URL, timeout=15)
-        if response.status_code == 200:
-            words = {line.strip().lower() for line in response.text.splitlines() if 3 <= len(line.strip()) <= 6}
-            for w in VALID_BASE_WORDS: words.add(w)
-            with open(LOCAL_CACHE_NAME, "w", encoding="utf-8") as f:
-                for w in sorted(words): f.write(f"{w}\n")
-            return words
-    except Exception: pass
     return FALLBACK_DICTIONARY
 
 GLOBAL_DICTIONARY = load_comprehensive_dictionary()
@@ -87,21 +71,17 @@ class GameRoom:
         score_chart = {3: 100, 4: 400, 5: 1200, 6: 2000}
         self.last_revealed_word = self.base_word
         self.skipped_trigger = skipped
-        
         for pid, player in self.players.items():
             unique_guesses = list(dict.fromkeys(player['current_round_words']))
             breakdown = []
             round_score = 0
-            
             for guess in unique_guesses:
                 is_valid = guess in self.valid_anagrams
                 pts = score_chart.get(len(guess), 0) if is_valid else 0
                 round_score += pts
                 breakdown.append({"word": guess, "valid": is_valid, "points": pts})
-                
             player['score'] += round_score
             player['last_breakdown'] = {"breakdown": breakdown, "round_word": self.base_word, "skipped": skipped}
-            
         self.generate_new_round()
 
     def check_timer(self):
@@ -117,8 +97,10 @@ class GameRoom:
     def get_state(self):
         now = time.time()
         self.players = {sid: p for sid, p in self.players.items() if now - p['last_seen'] < 10}
+        # Mask letters with question marks if the timer hasn't started yet
+        masked_letters = self.scrambled_letters if self.timer_active else ["?", "?", "?", "?", "?", "?"]
         return {
-            "letters": self.scrambled_letters, "target_count": len(self.valid_anagrams),
+            "letters": masked_letters, "target_count": len(self.valid_anagrams),
             "time_left": self.time_left, "timer_active": self.timer_active, "round_id": self.round_id,
             "leaderboard": sorted(
                 [{"sid": sid, "name": p["name"], "score": p["score"], "is_host": p["is_host"]} 
@@ -149,15 +131,11 @@ def sync_game():
     if not room or pid not in room.players: return jsonify({"error": "Expired"}), 404
     player = room.players[pid]
     player['last_seen'] = time.time()
-    
     if room.timer_active:
         player['current_round_words'] = data.get('buffered_words', [])
-        
     was_evaluated = room.check_timer()
     breakdown_payload = player['last_breakdown'] if (was_evaluated or player['last_breakdown'] is not None) else None
-    if breakdown_payload:
-        player['last_breakdown'] = None 
-        
+    if breakdown_payload: player['last_breakdown'] = None 
     return jsonify({"state": room.get_state(), "breakdown": breakdown_payload, "is_host": player['is_host']})
 
 @app.route('/api/control', methods=['POST'])
@@ -167,7 +145,6 @@ def control_timer():
     pid = data.get('pid')
     action = data.get('action')
     if not room or pid not in room.players or not room.players[pid]['is_host']: return jsonify({"status": "denied"})
-    
     if action == "start":
         room.timer_active = True
         room.end_timestamp = time.time() + room.time_left
