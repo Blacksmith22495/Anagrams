@@ -64,13 +64,17 @@ class GameRoom:
         self.time_left = self.time_limit
         self.end_timestamp = 0
         self.round_id += 1
+        
+        # FIXED: Scores reset to zero for all existing users when the round regenerates
         for p_id in self.players:
+            self.players[p_id]['score'] = 0
             self.players[p_id]['current_round_words'] = []
 
     def evaluate_round_conclusion(self, skipped=False):
         score_chart = {3: 100, 4: 400, 5: 1200, 6: 2000}
         self.last_revealed_word = self.base_word
         self.skipped_trigger = skipped
+        
         for pid, player in self.players.items():
             unique_guesses = list(dict.fromkeys(player['current_round_words']))
             breakdown = []
@@ -80,8 +84,10 @@ class GameRoom:
                 pts = score_chart.get(len(guess), 0) if is_valid else 0
                 round_score += pts
                 breakdown.append({"word": guess, "valid": is_valid, "points": pts})
-            player['score'] += round_score
+                
+            player['score'] = round_score  # Assigns round values
             player['last_breakdown'] = {"breakdown": breakdown, "round_word": self.base_word, "skipped": skipped}
+            
         self.generate_new_round()
 
     def check_timer(self):
@@ -97,7 +103,6 @@ class GameRoom:
     def get_state(self):
         now = time.time()
         self.players = {sid: p for sid, p in self.players.items() if now - p['last_seen'] < 10}
-        # Mask letters with question marks if the timer hasn't started yet
         masked_letters = self.scrambled_letters if self.timer_active else ["?", "?", "?", "?", "?", "?"]
         return {
             "letters": masked_letters, "target_count": len(self.valid_anagrams),
