@@ -64,11 +64,13 @@ class GameRoom:
         self.time_left = self.time_limit
         self.end_timestamp = 0
         self.round_id += 1
-        
-        # FIXED: Scores reset to zero for all existing users when the round regenerates
+        for p_id in self.players:
+            self.players[p_id]['current_round_words'] = []
+
+    def clear_all_scores(self):
+        # Explicit utility to reset profiles back to 0 only when the next game starts
         for p_id in self.players:
             self.players[p_id]['score'] = 0
-            self.players[p_id]['current_round_words'] = []
 
     def evaluate_round_conclusion(self, skipped=False):
         score_chart = {3: 100, 4: 400, 5: 1200, 6: 2000}
@@ -80,12 +82,13 @@ class GameRoom:
             breakdown = []
             round_score = 0
             for guess in unique_guesses:
-                is_valid = guess in self.valid_anagrams
-                pts = score_chart.get(len(guess), 0) if is_valid else 0
-                round_score += pts
-                breakdown.append({"word": guess, "valid": is_valid, "points": pts})
+                if guess in self.valid_anagrams:
+                    round_score += score_chart.get(len(guess), 0)
+                    breakdown.append({"word": guess, "valid": True, "points": score_chart.get(len(guess), 0)})
+                else:
+                    breakdown.append({"word": guess, "valid": False, "points": 0})
                 
-            player['score'] = round_score  # Assigns round values
+            player['score'] = round_score  
             player['last_breakdown'] = {"breakdown": breakdown, "round_word": self.base_word, "skipped": skipped}
             
         self.generate_new_round()
@@ -150,7 +153,11 @@ def control_timer():
     pid = data.get('pid')
     action = data.get('action')
     if not room or pid not in room.players or not room.players[pid]['is_host']: return jsonify({"status": "denied"})
+    
     if action == "start":
+        # FIXED: Only clear old scores when the host intentionally fires up the next round loop
+        if not room.timer_active and room.time_left == room.time_limit:
+            room.clear_all_scores()
         room.timer_active = True
         room.end_timestamp = time.time() + room.time_left
     elif action == "pause":
