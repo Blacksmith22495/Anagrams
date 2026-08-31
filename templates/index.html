@@ -46,7 +46,6 @@
         #auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-main); display: flex; justify-content: center; align-items: center; z-index: 100; }
         .auth-modal { background: var(--panel-bg); padding: 35px; border-radius: 12px; width: 100%; max-width: 450px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
         
-        /* Inline results container */
         #inline-results-panel { display: none; background: #0f172a; border: 1px solid #334155; padding: 20px; border-radius: 8px; margin: 15px 0; }
         .breakdown-list { max-height: 180px; overflow-y: auto; margin: 10px 0; padding-right: 5px; }
         .breakdown-row { display: flex; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid #1e293b; text-transform: uppercase; font-weight: bold; font-size: 0.9rem; }
@@ -75,7 +74,6 @@
             <div class="timer-banner" id="timer-display">00:60</div>
             <div class="status-msg" id="lock-status-msg">ROUND WAITING TO BEGIN</div>
 
-            <!-- INLINE RESULTS PANEL (Replaces overlapping block) -->
             <div id="inline-results-panel">
                 <h3 id="breakdown-title" style="color:var(--accent-warn); margin-bottom:5px;">Round Finished</h3>
                 <p style="font-size:0.85rem; color:var(--text-muted);">Base word: <span id="reveal-root-word" style="color:white; font-weight:bold; text-transform:uppercase;"></span></p>
@@ -109,7 +107,7 @@
             <div class="my-words-box" id="local-words-box"></div>
             
             <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button class="btn-secondary" onclick="shuffleTray()">🔀 Shuffle Letters</button>
+                <button class="btn-secondary" id="shuffle-btn" onclick="shuffleTray()">🔀 Shuffle Letters</button>
                 <button class="btn-danger" id="skip-btn" style="display:none;" onclick="controlTimer('skip')">⏭ Skip & Score Round</button>
             </div>
         </div>
@@ -185,15 +183,25 @@
                 document.getElementById('inline-results-panel').style.display = 'none';
             }
             
+            // Sync letters tray if contents updated on active state changes
+            let currentSig = state.letters.join("");
+            let traySig = Array.from(document.getElementById('letter-tray').children).map(c => c.innerText).join("");
+            if(currentSig !== traySig) {
+                localLetters = [...state.letters];
+                renderLetters(localLetters);
+            }
+            
             updateTimerDisplay(state.time_left);
             
             const txtInput = document.getElementById('guess-input');
             const btnSubmit = document.getElementById('guess-submit-btn');
+            const btnShuffle = document.getElementById('shuffle-btn');
             const statusLabel = document.getElementById('lock-status-msg');
             
             if (state.timer_active) {
                 txtInput.disabled = false;
                 btnSubmit.disabled = false;
+                btnShuffle.disabled = false;
                 statusLabel.innerText = "ROUND RUNNING - ENTRY ACTIVE";
                 statusLabel.style.color = "var(--accent-success)";
                 if(amHost) {
@@ -203,6 +211,7 @@
             } else {
                 txtInput.disabled = true;
                 btnSubmit.disabled = true;
+                btnShuffle.disabled = true;
                 statusLabel.innerText = "BOARD LOCKED - ROUND PAUSED/WAITING";
                 statusLabel.style.color = "var(--accent-warn)";
                 if(amHost) {
@@ -226,10 +235,8 @@
             const guess = input.value.trim().toLowerCase();
             if (!guess) return;
             input.value = '';
-
             if (guess.length < 3 || guess.length > 6) { launchToast("Must be 3-6 letters!"); return; }
             if (localRoundWords.includes(guess)) { launchToast("Word already on board!"); return; }
-
             localRoundWords.push(guess);
             renderLocalWords();
             input.focus();
@@ -248,27 +255,23 @@
             document.getElementById('reveal-root-word').innerText = data.round_word;
             const container = document.getElementById('breakdown-list-container');
             container.innerHTML = '';
-            
             if (data.breakdown.length === 0) {
                 container.innerHTML = `<p style="text-align:center; padding:10px; color:var(--text-muted);">No words submitted.</p>`;
             } else {
                 data.breakdown.forEach(item => {
-                    const row = document.createElement('div');
-                    row.className = 'breakdown-row';
+                    const row = document.createElement('div'); row.className = 'breakdown-row';
                     const color = item.valid ? 'var(--accent-success)' : 'var(--accent-error)';
                     const label = item.valid ? `+${item.points} PTS` : 'INVALID';
                     row.innerHTML = `<span>${item.word}</span><span style="color:${color};">${label}</span>`;
                     container.appendChild(row);
                 });
             }
-            
             document.getElementById('inline-results-panel').style.display = 'block';
         }
 
         function launchToast(msg) {
             const toast = document.getElementById('notification-toast');
-            toast.innerText = msg;
-            toast.style.opacity = '1';
+            toast.innerText = msg; toast.style.opacity = '1';
             setTimeout(() => { toast.style.opacity = '0'; }, 2000);
         }
 
@@ -305,6 +308,7 @@
         }
 
         function shuffleTray() {
+            if(localLetters.includes("?")) return; // Guard logic against shuffling placeholders
             for (let i = localLetters.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [localLetters[i], localLetters[j]] = [localLetters[j], localLetters[i]];
