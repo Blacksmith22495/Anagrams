@@ -2969,9 +2969,6 @@ arroz
 arrtez
 arry
 ars
-arse
-arseno
-arses
 arshin
 arsine
 arsino
@@ -5873,8 +5870,6 @@ bisulc
 bisync
 bit
 bitake
-bitch
-bitchy
 bite
 bited
 biter
@@ -18574,10 +18569,6 @@ fubsy
 fucate
 fuchi
 fuci
-fuck
-fucked
-fucker
-fucks
 fucoid
 fucose
 fucous
@@ -30801,7 +30792,6 @@ misfit
 misgo
 misgye
 mishap
-mishit
 mishmi
 misima
 miskal
@@ -42999,10 +42989,6 @@ shish
 shisn
 shist
 shists
-shit
-shita
-shits
-shitty
 shiv
 shiva
 shivah
