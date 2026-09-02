@@ -147,7 +147,7 @@
         let localRoundWords = [];
         let amHost = false;
         let currentRoundId = -1;
-        let totalLoggedChats = 0;
+        let localChatCounter = 0;
 
         const urlParams = new URLSearchParams(window.location.search);
         if(urlParams.get('room')) document.getElementById('room-input').value = urlParams.get('room');
@@ -175,7 +175,7 @@
             try {
                 const res = await fetch('/api/sync', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ room: currentRoom, pid: myPid, buffered_words: localRoundWords })
+                    body: JSON.stringify({ room: currentRoom, pid: myPid, buffered_words: localRoundWords, last_chat_id: localChatCounter })
                 });
                 if (res.status === 404) { window.location.reload(); return; }
                 const data = await res.json();
@@ -208,7 +208,7 @@
             }
             
             updateTimerDisplay(state.time_left);
-            renderChatHistory(state.chat);
+            appendIncrementalChats(state.new_chats);
             
             const txtInput = document.getElementById('guess-input');
             const btnSubmit = document.getElementById('guess-submit-btn');
@@ -237,20 +237,22 @@
             if(!msg) return; input.value = '';
             const res = await fetch('/api/chat', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ room: currentRoom, pid: myPid, msg: msg })
+                body: JSON.stringify({ room: currentRoom, pid: myPid, msg: msg, last_chat_id: localChatCounter })
             });
             const data = await res.json();
             if(data.state) handleBroadcast(data.state, amHost);
         }
 
-        function renderChatHistory(chatList) {
-            if (chatList.length === totalLoggedChats) return;
-            totalLoggedChats = chatList.length;
-            const box = document.getElementById('chat-stream-box'); box.innerHTML = '';
-            chatList.forEach(c => {
-                const row = document.createElement('div'); row.className = 'chat-row';
-                row.innerHTML = `<span class="chat-name">${escapeHtml(c.name)}:</span><span>${escapeHtml(c.msg)}</span>`;
-                box.appendChild(row);
+        function appendIncrementalChats(newChatsList) {
+            if (!newChatsList || newChatsList.length === 0) return;
+            const box = document.getElementById('chat-stream-box');
+            newChatsList.forEach(c => {
+                if (c.id > localChatCounter) {
+                    localChatCounter = c.id;
+                    const row = document.createElement('div'); row.className = 'chat-row';
+                    row.innerHTML = `<span class="chat-name">${escapeHtml(c.name)}:</span><span>${escapeHtml(c.msg)}</span>`;
+                    box.appendChild(row);
+                }
             });
             box.scrollTop = box.scrollHeight;
         }
