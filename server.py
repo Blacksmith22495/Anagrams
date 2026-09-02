@@ -37,6 +37,7 @@ class GameRoom:
     def __init__(self, room_id):
         self.room_id = room_id
         self.players = {}  # pid -> {name, score, current_round_words, is_host, last_seen, last_breakdown}
+        self.chat_history = []  # List of {"name": str, "msg": str, "time": float}
         self.base_word = ""
         self.scrambled_letters = []
         self.valid_anagrams = set()
@@ -68,7 +69,6 @@ class GameRoom:
             self.players[p_id]['current_round_words'] = []
 
     def clear_all_scores(self):
-        # Explicit utility to reset profiles back to 0 only when the next game starts
         for p_id in self.players:
             self.players[p_id]['score'] = 0
 
@@ -90,7 +90,6 @@ class GameRoom:
                 
             player['score'] = round_score  
             player['last_breakdown'] = {"breakdown": breakdown, "round_word": self.base_word, "skipped": skipped}
-            
         self.generate_new_round()
 
     def check_timer(self):
@@ -107,9 +106,15 @@ class GameRoom:
         now = time.time()
         self.players = {sid: p for sid, p in self.players.items() if now - p['last_seen'] < 10}
         masked_letters = self.scrambled_letters if self.timer_active else ["?", "?", "?", "?", "?", "?"]
+        
+        # Keep only the last 50 messages to keep payload small
+        if len(self.chat_history) > 50:
+            self.chat_history = self.chat_history[-50:]
+            
         return {
             "letters": masked_letters, "target_count": len(self.valid_anagrams),
             "time_left": self.time_left, "timer_active": self.timer_active, "round_id": self.round_id,
+            "chat": self.chat_history,
             "leaderboard": sorted(
                 [{"sid": sid, "name": p["name"], "score": p["score"], "is_host": p["is_host"]} 
                  for sid, p in self.players.items()], key=lambda x: x["score"], reverse=True
@@ -139,12 +144,29 @@ def sync_game():
     if not room or pid not in room.players: return jsonify({"error": "Expired"}), 404
     player = room.players[pid]
     player['last_seen'] = time.time()
+    
     if room.timer_active:
         player['current_round_words'] = data.get('buffered_words', [])
+        
     was_evaluated = room.check_timer()
     breakdown_payload = player['last_breakdown'] if (was_evaluated or player['last_breakdown'] is not None) else None
     if breakdown_payload: player['last_breakdown'] = None 
     return jsonify({"state": room.get_state(), "breakdown": breakdown_payload, "is_host": player['is_host']})
+
+@app.route('/api/chat', methods=['POST'])
+def post_chat():
+    data = request.json
+    room = ROOMS.get(data.get('room'))
+    pid = data.get('pid')
+    msg = data.get('msg', '').strip()
+    if not room or pid not in room.players or not msg: return jsonify({"status": "ignored"})
+    
+    room.chat_history.append({
+        "name": room.players[pid]['name'],
+        "msg": msg[:100],  # Enforce a 100 character text cap
+        "time": time.time()
+    })
+    return jsonify({"status": "ok", "state": room.get_state()})
 
 @app.route('/api/control', methods=['POST'])
 def control_timer():
@@ -155,7 +177,6 @@ def control_timer():
     if not room or pid not in room.players or not room.players[pid]['is_host']: return jsonify({"status": "denied"})
     
     if action == "start":
-        # FIXED: Only clear old scores when the host intentionally fires up the next round loop
         if not room.timer_active and room.time_left == room.time_limit:
             room.clear_all_scores()
         room.timer_active = True
