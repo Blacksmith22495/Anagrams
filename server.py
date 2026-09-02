@@ -2,6 +2,7 @@ import os
 import ssl
 import random
 import time
+import re
 from collections import Counter
 from flask import Flask, render_template, request, jsonify
 
@@ -25,19 +26,25 @@ def load_comprehensive_dictionary():
     if os.path.exists(LOCAL_CACHE_NAME):
         try:
             with open(LOCAL_CACHE_NAME, "r", encoding="utf-8") as f:
-                words = {line.strip().lower() for line in f if len(line.strip()) > 2}
-            if len(words) > 100:
-                return words
+                return {line.strip().lower() for line in f if len(line.strip()) > 2}
         except Exception: pass
     return FALLBACK_DICTIONARY
 
 GLOBAL_DICTIONARY = load_comprehensive_dictionary()
 ROOMS = {}
+
+def moderate_text(text):
+    # Lightweight room chat filter system
+    banned_words = [r"crap", r"sh+it", r"f+u+c+k", r"b+i+t+c+h", r"a+s+s+h+o+l+e", r"d+i+c+k"]
+    moderated = text
+    for pattern in banned_words:
+        moderated = re.sub(pattern, lambda m: "*" * len(m.group()), moderated, flags=re.IGNORECASE)
+    return moderated
 class GameRoom:
     def __init__(self, room_id):
         self.room_id = room_id
-        self.players = {}  # pid -> {name, score, current_round_words, is_host, last_seen, last_breakdown}
-        self.chat_history = []  # List of {"id": int, "name": str, "msg": str}
+        self.players = {}  # pid -> {name, score, current_round_words, is_host, last_seen, last_breakdown, ready}
+        self.chat_history = []
         self.chat_counter = 0
         self.base_word = ""
         self.scrambled_letters = []
@@ -48,7 +55,6 @@ class GameRoom:
         self.timer_active = False
         self.last_revealed_word = ""
         self.round_id = 0
-        self.skipped_trigger = False
         self.generate_new_round()
 
     def generate_new_round(self):
@@ -68,6 +74,7 @@ class GameRoom:
         self.round_id += 1
         for p_id in self.players:
             self.players[p_id]['current_round_words'] = []
+            self.players[p_id]['ready'] = False
 
     def clear_all_scores(self):
         for p_id in self.players:
@@ -76,8 +83,6 @@ class GameRoom:
     def evaluate_round_conclusion(self, skipped=False):
         score_chart = {3: 100, 4: 400, 5: 1200, 6: 2000}
         self.last_revealed_word = self.base_word
-        self.skipped_trigger = skipped
-        
         for pid, player in self.players.items():
             unique_guesses = list(dict.fromkeys(player['current_round_words']))
             breakdown = []
@@ -88,7 +93,6 @@ class GameRoom:
                     breakdown.append({"word": guess, "valid": True, "points": score_chart.get(len(guess), 0)})
                 else:
                     breakdown.append({"word": guess, "valid": False, "points": 0})
-                
             player['score'] = round_score  
             player['last_breakdown'] = {"breakdown": breakdown, "round_word": self.base_word, "skipped": skipped}
         self.generate_new_round()
@@ -103,24 +107,26 @@ class GameRoom:
                 self.time_left = current_remaining
         return False
 
+    def check_all_ready(self):
+        if len(self.players) == 0: return False
+        if all(p['ready'] for p in self.players.values()) and not self.timer_active:
+            self.clear_all_scores()
+            self.timer_active = True
+            self.end_timestamp = time.time() + self.time_limit
+            return True
+        return False
+
     def get_state(self, last_chat_id=0):
         now = time.time()
         self.players = {sid: p for sid, p in self.players.items() if now - p['last_seen'] < 10}
         masked_letters = self.scrambled_letters if self.timer_active else ["?", "?", "?", "?", "?", "?"]
-        
-        # Incremental sync: Only return messages newer than last_chat_id
         new_chats = [c for c in self.chat_history if c["id"] > last_chat_id]
-        
-        # Keep internal memory bounded to prevent server-side memory leaks
-        if len(self.chat_history) > 100:
-            self.chat_history = self.chat_history[-50:]
-            
         return {
             "letters": masked_letters, "target_count": len(self.valid_anagrams),
             "time_left": self.time_left, "timer_active": self.timer_active, "round_id": self.round_id,
             "new_chats": new_chats,
             "leaderboard": sorted(
-                [{"sid": sid, "name": p["name"], "score": p["score"], "is_host": p["is_host"]} 
+                [{"sid": sid, "name": p["name"], "score": p["score"], "is_host": p["is_host"], "ready": p["ready"]} 
                  for sid, p in self.players.items()], key=lambda x: x["score"], reverse=True
             )
         }
@@ -132,13 +138,23 @@ def index(): return render_template('index.html')
 def join_game():
     data = request.json
     room_id = data.get('room', 'lounge').strip() or 'lounge'
-    name = data.get('name', 'User').strip() or 'User'
+    proposed_name = data.get('name', 'User').strip() or 'User'
     pid = data.get('pid') or os.urandom(8).hex()
+    
     if room_id not in ROOMS: ROOMS[room_id] = GameRoom(room_id)
     room = ROOMS[room_id]
+    
+    # Unique Name Enforcement Lock Module
+    existing_names = [p['name'].lower() for p in room.players.values()]
+    final_name = proposed_name
+    counter = 2
+    while final_name.lower() in existing_names:
+        final_name = f"{proposed_name} #{counter}"
+        counter += 1
+        
     is_host = len(room.players) == 0 or not any(p['is_host'] for p in room.players.values())
-    room.players[pid] = {"name": name, "score": 0, "current_round_words": [], "is_host": is_host, "last_seen": time.time(), "last_breakdown": None}
-    return jsonify({"pid": pid, "is_host": is_host, "state": room.get_state()})
+    room.players[pid] = {"name": final_name, "score": 0, "current_round_words": [], "is_host": is_host, "last_seen": time.time(), "last_breakdown": None, "ready": False}
+    return jsonify({"pid": pid, "is_host": is_host, "final_name": final_name, "state": room.get_state()})
 
 @app.route('/api/sync', methods=['POST'])
 def sync_game():
@@ -154,9 +170,21 @@ def sync_game():
         player['current_round_words'] = data.get('buffered_words', [])
         
     was_evaluated = room.check_timer()
+    room.check_all_ready()
     breakdown_payload = player['last_breakdown'] if (was_evaluated or player['last_breakdown'] is not None) else None
     if breakdown_payload: player['last_breakdown'] = None 
     return jsonify({"state": room.get_state(last_chat_id), "breakdown": breakdown_payload, "is_host": player['is_host']})
+
+@app.route('/api/ready', methods=['POST'])
+def toggle_ready():
+    data = request.json
+    room = ROOMS.get(data.get('room'))
+    pid = data.get('pid')
+    if not room or pid not in room.players: return jsonify({"error": "Missing"}), 404
+    
+    room.players[pid]['ready'] = not room.players[pid]['ready']
+    started = room.check_all_ready()
+    return jsonify({"status": "ok", "started": started, "state": room.get_state()})
 
 @app.route('/api/chat', methods=['POST'])
 def post_chat():
@@ -171,7 +199,7 @@ def post_chat():
     room.chat_history.append({
         "id": room.chat_counter,
         "name": room.players[pid]['name'],
-        "msg": msg[:100]
+        "msg": moderate_text(msg[:100])
     })
     return jsonify({"status": "ok", "state": room.get_state(last_chat_id)})
 
@@ -183,12 +211,7 @@ def control_timer():
     action = data.get('action')
     if not room or pid not in room.players or not room.players[pid]['is_host']: return jsonify({"status": "denied"})
     
-    if action == "start":
-        if not room.timer_active and room.time_left == room.time_limit:
-            room.clear_all_scores()
-        room.timer_active = True
-        room.end_timestamp = time.time() + room.time_left
-    elif action == "pause":
+    if action == "pause":
         if room.timer_active:
             room.time_left = max(0, int(room.end_timestamp - time.time()))
             room.timer_active = False
