@@ -12,10 +12,14 @@
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
         body { background-color: var(--bg-main); color: var(--text-light); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-        .app-container { width: 100%; max-width: 950px; display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        
+        /* Updated Main Layout Grid */
+        .app-container { width: 100%; max-width: 1100px; display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
         @media (max-width: 768px) { .app-container { grid-template-columns: 1fr; } }
         
         .panel { background-color: var(--panel-bg); border-radius: 12px; padding: 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); position: relative; }
+        .sidebar-column { display: flex; flex-direction: column; gap: 20px; }
+        
         h1 { color: var(--text-light); margin-bottom: 8px; font-weight: 700; }
         .room-tag { font-size: 0.9rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 4px 12px; border-radius: 20px; display: inline-block; }
         
@@ -39,16 +43,21 @@
         
         .my-words-box { margin-top: 15px; background: #0f172a; padding: 12px; border-radius: 8px; min-height: 50px; border: 1px solid #334155; }
         .word-token { display: inline-block; background: #334155; padding: 4px 10px; border-radius: 15px; margin: 4px; font-size: 0.9rem; font-weight: 600; text-transform: uppercase; }
-        .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        .leaderboard-table th, .leaderboard-table td { text-align: left; padding: 10px; border-bottom: 1px solid #334155; }
+        .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+        .leaderboard-table th, .leaderboard-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #334155; }
         
-        #notification-toast { position: fixed; bottom: 20px; right: 20px; background: rgba(30,41,59,0.95); border: 2px solid var(--accent); color: white; padding: 16px 24px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-weight: 600; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.4s ease-in-out; }
+        /* Chat UI Container Layouts */
+        .chat-box { height: 200px; overflow-y: auto; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 10px; font-size: 0.95rem; }
+        .chat-row { margin-bottom: 6px; word-wrap: break-word; }
+        .chat-name { color: var(--accent); font-weight: bold; margin-right: 4px; }
+        
+        #notification-toast { position: fixed; bottom: 20px; right: 20px; background: rgba(30,41,59,0.95); border: 2px solid var(--accent); color: white; padding: 16px 24px; border-radius: 8px; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.4s ease-in-out; }
         #auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-main); display: flex; justify-content: center; align-items: center; z-index: 100; }
-        .auth-modal { background: var(--panel-bg); padding: 35px; border-radius: 12px; width: 100%; max-width: 450px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+        .auth-modal { background: var(--panel-bg); padding: 35px; border-radius: 12px; width: 100%; max-width: 450px; }
         
         #inline-results-panel { display: none; background: #0f172a; border: 1px solid #334155; padding: 20px; border-radius: 8px; margin: 15px 0; }
         .breakdown-list { max-height: 180px; overflow-y: auto; margin: 10px 0; padding-right: 5px; }
-        .breakdown-row { display: flex; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid #1e293b; text-transform: uppercase; font-weight: bold; font-size: 0.9rem; }
+        .breakdown-row { display: flex; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid #1e293b; text-transform: uppercase; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -112,13 +121,26 @@
             </div>
         </div>
 
-        <div class="panel score-board">
-            <h3>Standings</h3>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">Scores calculate at round-end</p>
-            <table class="leaderboard-table">
-                <thead><tr><th>Player</th><th>Score</th></tr></thead>
-                <tbody id="leaderboard-body"></tbody>
-            </table>
+        <div class="sidebar-column">
+            <div class="panel score-board">
+                <h3 style="margin-bottom:10px;">Standings</h3>
+                <table class="leaderboard-table">
+                    <thead><tr><th>Player</th><th>Score</th></tr></thead>
+                    <tbody id="leaderboard-body"></tbody>
+                </table>
+            </div>
+
+            <!-- CHAT MODULE CONTAINER BOX -->
+            <div class="panel chat-module">
+                <h3 style="margin-bottom:10px;">Room Chat</h3>
+                <div class="chat-box" id="chat-stream-box"></div>
+                <form id="chat-form" onsubmit="sendChatMessage(event)">
+                    <div class="control-group" style="margin-bottom: 0; gap: 6px;">
+                        <input type="text" id="chat-input" placeholder="Type chat..." autocomplete="off" style="padding: 8px 12px; font-size: 0.95rem;">
+                        <button type="submit" class="btn-primary" style="padding: 8px 14px; font-size: 0.95rem;">Send</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
     <script>
@@ -128,6 +150,7 @@
         let localRoundWords = [];
         let amHost = false;
         let currentRoundId = -1;
+        let totalLoggedChats = 0;
 
         const urlParams = new URLSearchParams(window.location.search);
         if(urlParams.get('room')) document.getElementById('room-input').value = urlParams.get('room');
@@ -170,7 +193,6 @@
             amHost = isHost;
             document.getElementById('host-panel').style.display = amHost ? 'block' : 'none';
             document.getElementById('skip-btn').style.display = amHost ? 'block' : 'none';
-            
             document.getElementById('inline-host-action').style.display = amHost ? 'block' : 'none';
             document.getElementById('inline-wait-msg').style.display = amHost ? 'none' : 'block';
             
@@ -191,6 +213,7 @@
             }
             
             updateTimerDisplay(state.time_left);
+            renderChatHistory(state.chat);
             
             const txtInput = document.getElementById('guess-input');
             const btnSubmit = document.getElementById('guess-submit-btn');
@@ -203,20 +226,12 @@
                 btnShuffle.disabled = false;
                 statusLabel.innerText = "ROUND RUNNING - ENTRY ACTIVE";
                 statusLabel.style.color = "var(--accent-success)";
-                if(amHost) {
-                    document.getElementById('host-start-btn').disabled = true;
-                    document.getElementById('host-pause-btn').disabled = false;
-                }
             } else {
                 txtInput.disabled = true;
                 btnSubmit.disabled = true;
                 btnShuffle.disabled = true;
                 statusLabel.innerText = "BOARD LOCKED - ROUND PAUSED/WAITING";
                 statusLabel.style.color = "var(--accent-warn)";
-                if(amHost) {
-                    document.getElementById('host-start-btn').disabled = false;
-                    document.getElementById('host-pause-btn').disabled = true;
-                }
             }
             
             const tbody = document.getElementById('leaderboard-body');
@@ -226,6 +241,36 @@
                 tr.innerHTML = `<td><strong>${p.name}${p.is_host ? ' 👑':''}</strong></td><td>${p.score} pts</td>`;
                 tbody.appendChild(tr);
             });
+        }
+
+        async function sendChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if(!msg) return;
+            input.value = '';
+
+            const res = await fetch('/api/chat', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ room: currentRoom, pid: myPid, msg: msg })
+            });
+            const data = await res.json();
+            if(data.state) handleBroadcast(data.state, amHost);
+        }
+
+        function renderChatHistory(chatList) {
+            if (chatList.length === totalLoggedChats) return;
+            totalLoggedChats = chatList.length;
+            
+            const box = document.getElementById('chat-stream-box');
+            box.innerHTML = '';
+            chatList.forEach(c => {
+                const row = document.createElement('div');
+                row.className = 'chat-row';
+                row.innerHTML = `<span class="chat-name">${escapeHtml(c.name)}:</span><span>${escapeHtml(c.msg)}</span>`;
+                box.appendChild(row);
+            });
+            box.scrollTop = box.scrollHeight; // Force scroll position to stay at the bottom
         }
 
         function submitWordLocal(e) {
@@ -313,7 +358,7 @@
                 [localLetters[i], localLetters[j]] = [localLetters[j], localLetters[i]];
             }
             renderLetters(localLetters);
+    }
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">");
         }
-    </script>
-</body>
-</html>
