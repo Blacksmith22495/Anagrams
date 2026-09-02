@@ -187,7 +187,6 @@
             amHost = isHost;
             document.getElementById('host-panel').style.display = amHost ? 'block' : 'none';
             document.getElementById('skip-btn').style.display = amHost ? 'block' : 'none';
-            document.getElementById('inline-wait-msg').style.display = amHost ? 'none' : 'block';
             
             if (state.round_id !== currentRoundId) {
                 currentRoundId = state.round_id;
@@ -200,10 +199,10 @@
             }
             
             let comingSig = state.letters.join("");
-            if (comingSig.includes("?") && serverLettersSig !== comingSig) {
-                serverLettersSig = comingSig; localLetters = [...state.letters]; renderLetters(localLetters);
-            } else if (!comingSig.includes("?") && !serverLettersSig.split("").every(val => localLetters.includes(val))) {
-                serverLettersSig = comingSig; localLetters = [...state.letters]; renderLetters(localLetters);
+            if (comingSig !== serverLettersSig) {
+                serverLettersSig = comingSig;
+                localLetters = [...state.letters];
+                renderLetters(localLetters);
             }
             
             updateTimerDisplay(state.time_left);
