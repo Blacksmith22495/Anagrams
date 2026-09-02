@@ -34,7 +34,6 @@ GLOBAL_DICTIONARY = load_comprehensive_dictionary()
 ROOMS = {}
 
 def moderate_text(text):
-    # Lightweight room chat filter system
     banned_words = [r"crap", r"sh+it", r"f+u+c+k", r"b+i+t+c+h", r"a+s+s+h+o+l+e", r"d+i+c+k"]
     moderated = text
     for pattern in banned_words:
@@ -55,6 +54,7 @@ class GameRoom:
         self.timer_active = False
         self.last_revealed_word = ""
         self.round_id = 0
+        self.skipped_trigger = False
         self.generate_new_round()
 
     def generate_new_round(self):
@@ -112,7 +112,8 @@ class GameRoom:
         if all(p['ready'] for p in self.players.values()) and not self.timer_active:
             self.clear_all_scores()
             self.timer_active = True
-            self.end_timestamp = time.time() + self.time_limit
+            # FIXED: Always resume cleanly using whatever specific seconds remain in the clock buffer
+            self.end_timestamp = time.time() + self.time_left
             return True
         return False
 
@@ -140,18 +141,14 @@ def join_game():
     room_id = data.get('room', 'lounge').strip() or 'lounge'
     proposed_name = data.get('name', 'User').strip() or 'User'
     pid = data.get('pid') or os.urandom(8).hex()
-    
     if room_id not in ROOMS: ROOMS[room_id] = GameRoom(room_id)
     room = ROOMS[room_id]
-    
-    # Unique Name Enforcement Lock Module
     existing_names = [p['name'].lower() for p in room.players.values()]
     final_name = proposed_name
     counter = 2
     while final_name.lower() in existing_names:
         final_name = f"{proposed_name} #{counter}"
         counter += 1
-        
     is_host = len(room.players) == 0 or not any(p['is_host'] for p in room.players.values())
     room.players[pid] = {"name": final_name, "score": 0, "current_round_words": [], "is_host": is_host, "last_seen": time.time(), "last_breakdown": None, "ready": False}
     return jsonify({"pid": pid, "is_host": is_host, "final_name": final_name, "state": room.get_state()})
@@ -165,10 +162,8 @@ def sync_game():
     if not room or pid not in room.players: return jsonify({"error": "Expired"}), 404
     player = room.players[pid]
     player['last_seen'] = time.time()
-    
     if room.timer_active:
         player['current_round_words'] = data.get('buffered_words', [])
-        
     was_evaluated = room.check_timer()
     room.check_all_ready()
     breakdown_payload = player['last_breakdown'] if (was_evaluated or player['last_breakdown'] is not None) else None
@@ -181,7 +176,6 @@ def toggle_ready():
     room = ROOMS.get(data.get('room'))
     pid = data.get('pid')
     if not room or pid not in room.players: return jsonify({"error": "Missing"}), 404
-    
     room.players[pid]['ready'] = not room.players[pid]['ready']
     started = room.check_all_ready()
     return jsonify({"status": "ok", "started": started, "state": room.get_state()})
@@ -194,13 +188,8 @@ def post_chat():
     msg = data.get('msg', '').strip()
     last_chat_id = int(data.get('last_chat_id', 0))
     if not room or pid not in room.players or not msg: return jsonify({"status": "ignored"})
-    
     room.chat_counter += 1
-    room.chat_history.append({
-        "id": room.chat_counter,
-        "name": room.players[pid]['name'],
-        "msg": moderate_text(msg[:100])
-    })
+    room.chat_history.append({"id": room.chat_counter, "name": room.players[pid]['name'], "msg": moderate_text(msg[:100])})
     return jsonify({"status": "ok", "state": room.get_state(last_chat_id)})
 
 @app.route('/api/control', methods=['POST'])
@@ -211,10 +200,12 @@ def control_timer():
     action = data.get('action')
     if not room or pid not in room.players or not room.players[pid]['is_host']: return jsonify({"status": "denied"})
     
+    # FIXED: Lock and freeze the time_left value perfectly on pause without any clock decays
     if action == "pause":
         if room.timer_active:
             room.time_left = max(0, int(room.end_timestamp - time.time()))
             room.timer_active = False
+            for p_id in room.players: room.players[p_id]['ready'] = False
     elif action == "limit":
         room.time_limit = max(10, int(data.get('limit', 60)))
         room.generate_new_round()
