@@ -24,8 +24,11 @@
         
         .timer-banner { font-size: 2.2rem; font-weight: 800; text-align: center; margin: 15px 0; color: var(--accent-warn); font-family: monospace; }
         .status-msg { text-align: center; font-weight: bold; margin-bottom: 15px; color: var(--accent-error); font-size: 1.1rem; }
-        .host-controls { background: rgba(255,255,255,0.03); border: 1px dashed #334155; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none; }
         
+        @keyframes alert-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.03); } }
+        .countdown-flash-banner { font-size: 3rem; font-weight: 900; text-align: center; color: var(--accent-error); animation: alert-pulse 0.5s linear infinite; margin: 20px 0; display: none; }
+        
+        .host-controls { background: rgba(255,255,255,0.03); border: 1px dashed #334155; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none; }
         .letter-tray { display: flex; gap: 10px; justify-content: center; margin: 20px 0; min-height: 60px; }
         .letter-tile { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; width: 55px; height: 55px; display: flex; justify-content: center; align-items: center; font-size: 1.8rem; font-weight: bold; border-radius: 8px; text-transform: uppercase; }
         
@@ -80,6 +83,7 @@
             <span class="room-tag" id="room-display">Room: lounge</span>
             
             <div class="timer-banner" id="timer-display">00:60</div>
+            <div id="countdown-flash-block" class="countdown-flash-banner">3</div>
             <div class="status-msg" id="lock-status-msg">ROUND WAITING TO BEGIN</div>
 
             <div id="inline-results-panel">
@@ -213,13 +217,24 @@
             const btnShuffle = document.getElementById('shuffle-btn');
             const statusLabel = document.getElementById('lock-status-msg');
             const btnReady = document.getElementById('ready-toggle-btn');
+            const flashBlock = document.getElementById('countdown-flash-block');
+            const inlineResults = document.getElementById('inline-results-panel');
             
-            if (state.timer_active) {
-                txtInput.disabled = false; btnSubmit.disabled = false; btnShuffle.disabled = false; btnReady.disabled = true;
-                statusLabel.innerText = "ROUND RUNNING - ENTRY ACTIVE"; statusLabel.style.color = "var(--accent-success)";
+            if (state.countdown_active) {
+                inlineResults.style.display = 'none';
+                flashBlock.style.display = 'block';
+                flashBlock.innerText = `GET READY: ${state.time_left}`;
+                txtInput.disabled = true; btnSubmit.disabled = true; btnShuffle.disabled = true; btnReady.disabled = true;
+                statusLabel.innerText = "MATCH INCOMING - PREPARING TRAY..."; statusLabel.style.color = "var(--accent-error)";
             } else {
-                txtInput.disabled = true; btnSubmit.disabled = true; btnShuffle.disabled = true; btnReady.disabled = false;
-                statusLabel.innerText = "BOARD LOCKED - ALL PLAYERS READY UP TO BEGIN"; statusLabel.style.color = "var(--accent-warn)";
+                flashBlock.style.display = 'none';
+                if (state.timer_active) {
+                    txtInput.disabled = false; btnSubmit.disabled = false; btnShuffle.disabled = false; btnReady.disabled = true;
+                    statusLabel.innerText = "ROUND RUNNING - ENTRY ACTIVE"; statusLabel.style.color = "var(--accent-success)";
+                } else {
+                    txtInput.disabled = true; btnSubmit.disabled = true; btnShuffle.disabled = true; btnReady.disabled = false;
+                    statusLabel.innerText = "BOARD LOCKED - ALL PLAYERS READY UP TO BEGIN"; statusLabel.style.color = "var(--accent-warn)";
+                }
             }
             
             const tbody = document.getElementById('leaderboard-body'); tbody.innerHTML = '';
@@ -251,20 +266,14 @@
             const guess = input.value.trim().toLowerCase().replace(/[^a-z]/g, "");
             input.value = '';
             if (!guess) return;
-
             if (guess.length < 3 || guess.length > 6) { launchToast("Must be 3-6 letters!"); return; }
             if (localRoundWords.includes(guess)) { launchToast("Word already on board!"); return; }
-
             let trayPool = [...localLetters];
             for (let char of guess) {
                 let idx = trayPool.indexOf(char);
-                if (idx === -1) {
-                    launchToast(`Error: Letter "${char.toUpperCase()}" is not in the tray grid!`);
-                    return;
-                }
+                if (idx === -1) { launchToast(`Error: Letter "${char.toUpperCase()}" is not in the tray grid!`); return; }
                 trayPool.splice(idx, 1);
             }
-
             localRoundWords.push(guess);
             renderLocalWords();
             input.focus();
