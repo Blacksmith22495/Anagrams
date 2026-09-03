@@ -34,7 +34,7 @@ GLOBAL_DICTIONARY = load_comprehensive_dictionary()
 ROOMS = {}
 
 def moderate_text(text):
-    banned_words = [r"crap", r"sh+it", r"f+u+c+k", r"b+i+t+c+h", r"a+s+s+h+o+l+e", r"d+i+c+k"]
+    banned_words = [r"crap", r"sh+it", r"f+u+c+k", r"b+i+t+c+h", r"a+s+s", r"d+i+c+k"]
     moderated = text
     for pattern in banned_words:
         moderated = re.sub(pattern, lambda m: "*" * len(m.group()), moderated, flags=re.IGNORECASE)
@@ -52,9 +52,10 @@ class GameRoom:
         self.time_left = 60
         self.end_timestamp = 0
         self.timer_active = False
+        self.countdown_active = False
+        self.countdown_end = 0
         self.last_revealed_word = ""
         self.round_id = 0
-        self.skipped_trigger = False
         self.generate_new_round()
 
     def generate_new_round(self):
@@ -69,6 +70,8 @@ class GameRoom:
             if 3 <= len(word) <= 6 and all(Counter(word)[c] <= base_counter[c] for c in word):
                 self.valid_anagrams.add(word)
         self.timer_active = False
+        self.countdown_active = False
+        self.countdown_end = 0
         self.time_left = self.time_limit
         self.end_timestamp = 0
         self.round_id += 1
@@ -98,6 +101,15 @@ class GameRoom:
         self.generate_new_round()
 
     def check_timer(self):
+        # Manage the 3-second lobby flash countdown transition states
+        if self.countdown_active:
+            rem_cd = int(self.countdown_end - time.time())
+            if rem_cd <= 0:
+                self.countdown_active = False
+                self.timer_active = True
+                self.end_timestamp = time.time() + self.time_left
+            return False
+            
         if self.timer_active:
             current_remaining = int(self.end_timestamp - time.time())
             if current_remaining <= 0:
@@ -109,11 +121,11 @@ class GameRoom:
 
     def check_all_ready(self):
         if len(self.players) == 0: return False
-        if all(p['ready'] for p in self.players.values()) and not self.timer_active:
+        if all(p['ready'] for p in self.players.values()) and not self.timer_active and not self.countdown_active:
             self.clear_all_scores()
-            self.timer_active = True
-            # FIXED: Always resume cleanly using whatever specific seconds remain in the clock buffer
-            self.end_timestamp = time.time() + self.time_left
+            # FIXED: Enter visual 3s pending block, deferring tile unmask until completion
+            self.countdown_active = True
+            self.countdown_end = time.time() + 3
             return True
         return False
 
@@ -122,9 +134,15 @@ class GameRoom:
         self.players = {sid: p for sid, p in self.players.items() if now - p['last_seen'] < 10}
         masked_letters = self.scrambled_letters if self.timer_active else ["?", "?", "?", "?", "?", "?"]
         new_chats = [c for c in self.chat_history if c["id"] > last_chat_id]
+        
+        display_time = self.time_left
+        if self.countdown_active:
+            display_time = max(0, int(self.countdown_end - time.time()))
+            
         return {
             "letters": masked_letters, "target_count": len(self.valid_anagrams),
-            "time_left": self.time_left, "timer_active": self.timer_active, "round_id": self.round_id,
+            "time_left": display_time, "timer_active": self.timer_active, 
+            "countdown_active": self.countdown_active, "round_id": self.round_id,
             "new_chats": new_chats,
             "leaderboard": sorted(
                 [{"sid": sid, "name": p["name"], "score": p["score"], "is_host": p["is_host"], "ready": p["ready"]} 
@@ -177,8 +195,8 @@ def toggle_ready():
     pid = data.get('pid')
     if not room or pid not in room.players: return jsonify({"error": "Missing"}), 404
     room.players[pid]['ready'] = not room.players[pid]['ready']
-    started = room.check_all_ready()
-    return jsonify({"status": "ok", "started": started, "state": room.get_state()})
+    room.check_all_ready()
+    return jsonify({"status": "ok", "state": room.get_state()})
 
 @app.route('/api/chat', methods=['POST'])
 def post_chat():
@@ -199,8 +217,6 @@ def control_timer():
     pid = data.get('pid')
     action = data.get('action')
     if not room or pid not in room.players or not room.players[pid]['is_host']: return jsonify({"status": "denied"})
-    
-    # FIXED: Lock and freeze the time_left value perfectly on pause without any clock decays
     if action == "pause":
         if room.timer_active:
             room.time_left = max(0, int(room.end_timestamp - time.time()))
