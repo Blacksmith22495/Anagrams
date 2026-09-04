@@ -51,15 +51,16 @@ class GameRoom:
         self.generate_new_round()
     def generate_new_round(self):
         if self.game_type == "anagram":
-            self.base_word = random.choice(VALID_BASE_WORDS)
+            self.base_word = random.choice(VALID_BASE_WORDS).lower()
             letters = list(self.base_word)
             while "".join(letters) == self.base_word: random.shuffle(letters)
             self.scrambled_letters = letters
             self.valid_anagrams = set()
             base_counter = Counter(self.base_word)
             for word in GLOBAL_DICTIONARY:
-                if 3 <= len(word) <= 6 and all(Counter(word)[c] <= base_counter[c] for c in word):
-                    self.valid_anagrams.add(word)
+                w_low = word.strip().lower()
+                if 3 <= len(w_low) <= 6 and all(Counter(w_low)[c] <= base_counter[c] for c in w_low):
+                    self.valid_anagrams.add(w_low)
             self.timer_active = False
             self.countdown_active = False
             self.time_left = self.time_limit
@@ -84,12 +85,13 @@ class GameRoom:
             breakdown = []
             round_score = player.get('score', 0)
             for guess in unique_guesses:
-                if guess in self.valid_anagrams:
-                    pts = score_chart.get(len(guess), 0)
+                g_low = guess.strip().lower()
+                if g_low in self.valid_anagrams:
+                    pts = score_chart.get(len(g_low), 0)
                     round_score += pts
-                    breakdown.append({"word": guess, "valid": True, "points": pts})
+                    breakdown.append({"word": g_low, "valid": True, "points": pts})
                 else:
-                    breakdown.append({"word": guess, "valid": False, "points": 0})
+                    breakdown.append({"word": g_low, "valid": False, "points": 0})
             player['score'] = round_score
             player['last_breakdown'] = {"breakdown": breakdown, "round_word": self.base_word, "skipped": skipped}
         self.generate_new_round()
@@ -121,7 +123,6 @@ class GameRoom:
         now = time.time()
         self.players = {sid: p for sid, p in self.players.items() if now - p['last_seen'] < 10}
         new_chats = [c for c in self.chat_history if c["id"] > last_chat_id]
-        
         reveal_letters = self.timer_active or self.countdown_active
         letters_payload = self.scrambled_letters if reveal_letters else ["?"] * 6
         display_time = max(0, int(self.countdown_end - time.time())) if self.countdown_active else self.time_left
@@ -161,7 +162,9 @@ def sync_game():
     player['last_seen'] = time.time()
     
     if room.timer_active and room.game_type == "anagram":
-        player['current_round_words'] = data.get('buffered_words', [])
+        # FIXED: Lower-case all text elements inside the list compilation mapping layer
+        raw_words = data.get('buffered_words', [])
+        player['current_round_words'] = [str(w).strip().lower() for w in raw_words]
         
     room.check_timer()
     room.check_all_ready()
