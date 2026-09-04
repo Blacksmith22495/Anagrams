@@ -35,15 +35,22 @@
     .btn-success { background-color: var(--accent-success); color: white; }
     .btn-danger { background-color: var(--accent-error); color: white; }
     .btn-secondary { background-color: #334155; color: var(--text-light); }
+    .my-words-box { margin-top: 15px; background: #0f172a; padding: 12px; border-radius: 8px; min-height: 50px; border: 1px solid #334155; }
+    .word-token { display: inline-block; background: #334155; padding: 4px 10px; border-radius: 15px; margin: 4px; font-size: 0.9rem; font-weight: 600; text-transform: uppercase; }
     .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
     .leaderboard-table th, .leaderboard-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #334155; }
     .chat-box { height: 180px; overflow-y: auto; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 10px; font-size: 0.95rem; }
     .chat-row { margin-bottom: 6px; word-wrap: break-word; }
     .chat-name { color: var(--accent); font-weight: bold; margin-right: 4px; }
+    #notification-toast { position: fixed; bottom: 20px; right: 20px; background: rgba(30,41,59,0.95); border: 2px solid var(--accent); color: white; padding: 16px 24px; border-radius: 8px; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s ease-in-out; }
     #auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-main); display: flex; justify-content: center; align-items: center; z-index: 100; }
     .auth-modal { background: var(--panel-bg); padding: 35px; border-radius: 12px; width: 100%; max-width: 450px; }
     .game-section { display: none; }
     .tq-q-box { max-height: 180px; overflow-y: auto; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px; margin-bottom: 15px; }
+    #inline-results-panel { display: none; background: #0f172a; border: 1px solid #334155; padding: 20px; border-radius: 8px; margin: 15px 0; }
+    .breakdown-list { max-height: 180px; overflow-y: auto; margin: 10px 0; padding-right: 5px; }
+    .breakdown-row { display: flex; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid #1e293b; text-transform: uppercase; font-weight: bold; }
+    .host-controls { background: rgba(255,255,255,0.03); border: 1px dashed #334155; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none; }
 </style>
 <body>
     <div id="auth-overlay">
@@ -56,6 +63,7 @@
             </div>
         </div>
     </div>
+    <div id="notification-toast">Word Saved!</div>
     <div class="app-container">
         <div class="panel main-arena">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -70,30 +78,45 @@
             </div>
             <span class="room-tag" id="room-display">Room: lounge</span>
             
-            <!-- Room Selection Screen layout -->
             <div id="panel-unselected" class="game-section" style="display:block; padding:30px 10px; text-align:center;">
                 <h3 style="color:var(--accent-warn);">Lounge Initialization Phase</h3>
-                <p style="color:var(--text-muted); margin-top:8px;" id="lounge-wait-text">Waiting for host to pick this room's locked game type...</p>
+                <p style="color:var(--text-muted); margin-top:8px;" id="lounge-wait-text">Waiting for host...</p>
             </div>
             
-            <!-- Anagram Panel Layout -->
             <div id="panel-anagram" class="game-section">
                 <div class="timer-banner" id="timer-display">00:60</div>
                 <div id="countdown-flash-block" class="countdown-flash-banner">3</div>
                 <div class="status-msg" id="lock-status-msg">WAITING</div>
+
+                <div id="inline-results-panel">
+                    <h3 id="breakdown-title" style="color:var(--accent-warn); margin-bottom:5px;">Round Finished</h3>
+                    <p style="font-size:0.85rem; color:var(--text-muted);">Base word: <span id="reveal-root-word" style="color:white; font-weight:bold; text-transform:uppercase;"></span></p>
+                    <div class="breakdown-list" id="breakdown-list-container"></div>
+                </div>
+
+                <div class="host-controls" id="host-panel">
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">👑 HOST DASHBOARD</p>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <button class="btn-secondary" style="padding:8px 16px;" onclick="controlTimer('pause')">⏸ Pause</button>
+                        <input type="number" id="limit-input" value="60" style="width:80px; padding:6px;" min="10">
+                        <button class="btn-secondary" style="padding:8px 16px;" onclick="updateLimit()">Set Limit</button>
+                        <button class="btn-danger" style="padding:8px 16px;" onclick="controlTimer('skip')">⏭ Skip</button>
+                    </div>
+                </div>
+
                 <div class="letter-tray" id="letter-tray"></div>
                 <form onsubmit="submitWordLocal(event)"><div class="control-group">
                     <input type="text" id="guess-input" placeholder="Type anagram & press Enter..." autocomplete="off" disabled>
                     <button type="submit" id="guess-submit-btn" class="btn-primary" disabled>Add Word</button>
                 </div></form>
+                <h3>Your Submissions This Round:</h3>
                 <div class="my-words-box" id="local-words-box" style="margin-bottom:15px; min-height:50px;"></div>
                 <div style="display:flex; gap:10px;">
-                    <button class="btn-secondary" onclick="shuffleTray()">🔀 Shuffle</button>
+                    <button class="btn-secondary" id="shuffle-btn" onclick="shuffleTray()">🔀 Shuffle</button>
                     <button class="btn-success" id="ready-toggle-btn" onclick="toggleReadyState()">✓ Ready for Next Round</button>
                 </div>
             </div>
 
-            <!-- 20 Questions Panel Layout -->
             <div id="panel-tq" class="game-section">
                 <div class="timer-banner" id="tq-status-banner">Status: Waiting</div>
                 <p style="margin-bottom:8px;">Secret Word Tracker: <strong id="tq-word-reveal" style="color:var(--accent-warn); font-family:monospace; letter-spacing:2px;"></strong></p>
@@ -147,13 +170,13 @@
                 if (res.status === 404) { window.location.reload(); return; }
                 const data = await res.json();
                 handleBroadcast(data.state, data.is_host);
+                if (data.breakdown) showInlineBreakdown(data.breakdown);
             } catch(e) {}
         }
 
         function handleBroadcast(state, isHost) {
             amHost = isHost;
-            
-            // FIXED: Only show selector if room has not locked down a specific game rule type yet
+            document.getElementById('host-panel').style.display = (amHost && state.game_type === 'anagram') ? 'block' : 'none';
             if (!state.game_locked && amHost) {
                 document.getElementById('host-game-switcher').style.display = 'block';
             } else {
@@ -166,9 +189,8 @@
             
             if (state.game_type === 'unselected') {
                 document.getElementById('game-title').innerText = "Lounge Lobby";
-                document.getElementById('lounge-wait-text').innerText = amHost ? "👑 Please select this room's locked game type above." : "Waiting for host to pick this room's locked game type...";
+                document.getElementById('lounge-wait-text').innerText = amHost ? "👑 Pick locked game above." : "Waiting for host...";
             }
-            
             appendIncrementalChats(state.new_chats);
             
             if (state.game_type === 'anagram') {
@@ -192,30 +214,29 @@
         function handleAnagramBroadcast(state) {
             const flashBlock = document.getElementById('countdown-flash-block');
             const txtInput = document.getElementById('guess-input'), btnSubmit = document.getElementById('guess-submit-btn'), statusLabel = document.getElementById('lock-status-msg');
-            const readyBtn = document.getElementById('ready-toggle-btn');
+            const readyBtn = document.getElementById('ready-toggle-btn'), shuffleBtn = document.getElementById('shuffle-btn');
             
             if (state.round_id !== currentRoundId) {
                 currentRoundId = state.round_id; localLetters = [...state.letters]; renderLetters(localLetters);
-                localRoundWords = []; renderLocalWords();
+                localRoundWords = []; renderLocalWords(); document.getElementById('inline-results-panel').style.display = 'none';
             }
             let comingSig = state.letters.join("");
             if (comingSig !== serverLettersSig) {
                 serverLettersSig = comingSig; localLetters = [...state.letters]; renderLetters(localLetters);
             }
-            
             updateTimerDisplay(state.time_left);
             
             if (state.countdown_active) {
                 flashBlock.style.display = 'block'; flashBlock.innerText = state.time_left;
-                txtInput.disabled = true; btnSubmit.disabled = true; readyBtn.disabled = true;
+                txtInput.disabled = true; btnSubmit.disabled = true; readyBtn.disabled = true; shuffleBtn.disabled = true;
                 statusLabel.innerText = "GET READY!"; statusLabel.style.color = "var(--accent-error)";
             } else {
                 flashBlock.style.display = 'none';
                 if (state.timer_active) {
-                    txtInput.disabled = false; btnSubmit.disabled = false; readyBtn.disabled = true;
+                    txtInput.disabled = false; btnSubmit.disabled = false; readyBtn.disabled = true; shuffleBtn.disabled = false;
                     statusLabel.innerText = "ROUND RUNNING - ENTRY ACTIVE"; statusLabel.style.color = "var(--accent-success)";
                 } else {
-                    txtInput.disabled = true; btnSubmit.disabled = true; readyBtn.disabled = false;
+                    txtInput.disabled = true; btnSubmit.disabled = true; readyBtn.disabled = false; shuffleBtn.disabled = true;
                     statusLabel.innerText = "ROUND FINISHED - READY UP"; statusLabel.style.color = "var(--accent-warn)";
                 }
             }
@@ -227,19 +248,15 @@
             const guess = input.value.trim().toLowerCase().replace(/[^a-z]/g, "");
             input.value = '';
             if (!guess) return;
-
-            if (guess.length < 3 || guess.length > 6) { alert("Must be 3-6 letters!"); return; }
-            if (localRoundWords.includes(guess)) { alert("Word already on board!"); return; }
-
+            if (guess.length < 3 || guess.length > 6) { launchToast("Must be 3-6 letters!"); return; }
+            if (localRoundWords.includes(guess)) { launchToast("Word already on board!"); return; }
             let trayPool = [...localLetters];
             for (let char of guess) {
                 let idx = trayPool.indexOf(char);
-                if (idx === -1) { alert(`Letter "${char.toUpperCase()}" is not in the tray grid!`); return; }
+                if (idx === -1) { launchToast(`Letter "${char.toUpperCase()}" not in tray!`); return; }
                 trayPool.splice(idx, 1);
             }
-            localRoundWords.push(guess);
-            renderLocalWords();
-            input.focus();
+            localRoundWords.push(guess); renderLocalWords(); input.focus();
         }
 
         function renderLocalWords() {
@@ -249,35 +266,43 @@
             });
         }
 
+        function showInlineBreakdown(data) {
+            document.getElementById('reveal-root-word').innerText = data.round_word;
+            const container = document.getElementById('breakdown-list-container'); container.innerHTML = '';
+            if (!data.breakdown || data.breakdown.length === 0) {
+                container.innerHTML = `<p style="text-align:center; padding:10px; color:var(--text-muted);">No words found.</p>`;
+            } else {
+                data.breakdown.forEach(item => {
+                    const row = document.createElement('div'); row.className = 'breakdown-row';
+                    const color = item.valid ? 'var(--accent-success)' : 'var(--accent-error)';
+                    const label = item.valid ? `+${item.points} PTS` : 'INVALID';
+                    row.innerHTML = `<span>${item.word}</span><span style="color:${color};">${label}</span>`; container.appendChild(row);
+                });
+            }
+            document.getElementById('inline-results-panel').style.display = 'block';
+        }
+    </script>
+    <script>
         function handleTqBroadcast(state) {
             document.getElementById('tq-word-reveal').innerText = state.tq_secret_word || '???';
             document.getElementById('tq-count-num').innerText = state.tq_questions.length;
             const controls = document.getElementById('tq-controls-area'), askArea = document.getElementById('tq-ask-area');
             const banner = document.getElementById('tq-status-banner');
-            
             if (cachedTqStatus !== state.tq_status || (state.tq_status === 'waiting_word' && controls.children.length === 0)) {
                 cachedTqStatus = state.tq_status;
                 if (state.tq_status === 'waiting_thinker') {
-                    banner.innerText = "Status: Need a Thinker!";
-                    controls.innerHTML = `<button class="btn-primary" onclick="tqActionReq('become_thinker')">Volunteer to be Thinker</button>`;
-                    askArea.style.display = 'none';
+                    banner.innerText = "Status: Need a Thinker!"; controls.innerHTML = `<button class="btn-primary" onclick="tqActionReq('become_thinker')">Volunteer</button>`; askArea.style.display = 'none';
                 } else if (state.tq_status === 'waiting_word') {
                     if (state.tq_thinker_pid === myPid) {
-                        banner.innerText = "Status: Enter your secret word below!";
-                        controls.innerHTML = `<div class="control-group"><input type="text" id="tq-secret-input" placeholder="Type secret word..."><button class="btn-success" onclick="tqSetWord()">Set Word</button></div>`;
-                    } else { banner.innerText = "Status: Thinker is setting word..."; controls.innerHTML = ''; }
+                        banner.innerText = "Status: Enter word!"; controls.innerHTML = `<div class="control-group"><input type="text" id="tq-secret-input" placeholder="Word..."><button class="btn-success" onclick="tqSetWord()">Set</button></div>`;
+                    } else { banner.innerText = "Status: Setting word..."; controls.innerHTML = ''; }
                     askArea.style.display = 'none';
                 } else if (state.tq_status === 'active') {
-                    banner.innerText = state.tq_thinker_pid === myPid ? "Status: Answer Questions!" : "Status: Guessing Phase Active!";
-                    controls.innerHTML = '';
-                    askArea.style.display = state.tq_thinker_pid === myPid ? 'none' : 'block';
+                    banner.innerText = state.tq_thinker_pid === myPid ? "Status: Answer Questions!" : "Status: Guessing Active!"; controls.innerHTML = ''; askArea.style.display = state.tq_thinker_pid === myPid ? 'none' : 'block';
                 } else if (state.tq_status === 'won') {
-                    banner.innerText = "Status: Word Solved!";
-                    controls.innerHTML = `<button class="btn-success" onclick="tqActionReq('become_thinker')">Start New Round</button>`;
-                    askArea.style.display = 'none';
+                    banner.innerText = "Status: Word Solved!"; controls.innerHTML = `<button class="btn-success" onclick="tqActionReq('become_thinker')">Next Round</button>`; askArea.style.display = 'none';
                 }
             }
-            
             const qList = document.getElementById('tq-questions-list'); qList.innerHTML = '';
             state.tq_questions.forEach(q => {
                 const div = document.createElement('div'); div.style.cssText = "margin-bottom:6px; padding:6px; background:#0f172a; border-radius:6px; border:1px solid #334155;";
@@ -291,14 +316,15 @@
                 div.innerHTML = `<strong>${q.name}:</strong> ${escapeHtml(q.text)} &rarr; ${ansHtml}`; qList.appendChild(div);
             });
         }
-    </script>
-    <script>
+
         async function switchGameMode(gt) { const res = await fetch('/api/game_switch', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, game_type: gt }) }); handleBroadcast((await res.json()).state, amHost); }
         async function tqActionReq(action) { const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action }) }); handleBroadcast((await res.json()).state, amHost); }
         async function tqSetWord() { const w = document.getElementById('tq-secret-input').value; const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'set_word', word: w }) }); handleBroadcast((await res.json()).state, amHost); }
         async function tqSubmitQuestion() { const t = document.getElementById('tq-question-input').value; document.getElementById('tq-question-input').value = ''; const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'ask_question', text: t }) }); handleBroadcast((await res.json()).state, amHost); }
         async function tqAnswerQ(qid, answer) { const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'answer_question', qid, answer }) }); handleBroadcast((await res.json()).state, amHost); }
         async function toggleReadyState() { const res = await fetch('/api/ready', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid }) }); handleBroadcast((await res.json()).state, amHost); }
+        async function controlTimer(action) { const res = await fetch('/api/control', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action }) }); handleBroadcast((await res.json()).state, amHost); }
+        async function updateLimit() { const val = document.getElementById('limit-input').value; const res = await fetch('/api/control', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'limit', limit: val }) }); launchToast(`Limit set to ${val}s!`); handleBroadcast((await res.json()).state, amHost); }
         async function sendChatMessage(e) { e.preventDefault(); const input = document.getElementById('chat-input'), msg = input.value.trim(); if(!msg) return; input.value = ''; const res = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, msg, last_chat_id: localChatCounter }) }); handleBroadcast((await res.json()).state, amHost); }
         
         function appendIncrementalChats(newChatsList) {
@@ -306,6 +332,7 @@
             newChatsList.forEach(c => { if (c.id > localChatCounter) { localChatCounter = c.id; const row = document.createElement('div'); row.className = 'chat-row'; row.innerHTML = `<span class="chat-name">${escapeHtml(c.name)}:</span><span>${escapeHtml(c.msg)}</span>`; box.appendChild(row); } });
             box.scrollTop = box.scrollHeight;
         }
+        function launchToast(msg) { const t = document.getElementById('notification-toast'); t.innerText = msg; t.style.opacity = '1'; t.style.pointerEvents = 'auto'; setTimeout(() => { t.style.opacity = '0'; t.style.pointerEvents = 'none'; }, 2000); }
         function updateTimerDisplay(s) { document.getElementById('timer-display').innerText = `00:${String(s).padStart(2, '0')}`; }
         function renderLetters(l) { const t = document.getElementById('letter-tray'); t.innerHTML = ''; l.forEach(x => { const e = document.createElement('div'); e.className = 'letter-tile'; e.innerText = x; t.appendChild(e); }); }
         function shuffleTray() { if(localLetters.includes("?")) return; localLetters.sort(() => Math.random() - 0.5); renderLetters(localLetters); }
