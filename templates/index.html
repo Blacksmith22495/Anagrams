@@ -311,7 +311,7 @@
                     ansHtml = `<button class="btn-success" style="padding:2px 8px; font-size:0.8rem; margin-right:4px;" onclick="tqAnswerQ(${q.id}, 'Yes')">Yes</button>
                                <button class="btn-danger" style="padding:2px 8px; font-size:0.8rem; margin-right:4px;" onclick="tqAnswerQ(${q.id}, 'No')">No</button>
                                <button class="btn-secondary" style="padding:2px 8px; font-size:0.8rem; margin-right:4px;" onclick="tqAnswerQ(${q.id}, 'Maybe')">Maybe</button>
-                               <button class="btn-primary" style="padding:2px 8px; font-size:0.8rem;" onclick="tqAnswerQ(${q.id}, 'Correct')">That's the Word!</button>`;
+                               <button class="btn-primary" style="padding:2px 8px; font-size:0.8rem;" onclick="tqAnswerQ(${q.id}, 'Correct')">Correct!</button>`;
                 }
                 div.innerHTML = `<strong>${q.name}:</strong> ${escapeHtml(q.text)} &rarr; ${ansHtml}`; qList.appendChild(div);
             });
