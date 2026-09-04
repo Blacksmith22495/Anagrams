@@ -146,7 +146,7 @@
             </div>
         </div>
     </div>
-    <script>
+        <script>
         let currentRoom = "lounge", myPid = null, amHost = false, localChatCounter = 0;
         let localLetters = [], localRoundWords = [], currentRoundId = -1, serverLettersSig = "";
         let cachedTqStatus = "";
@@ -166,6 +166,7 @@
 
         async function syncLoop() {
             try {
+                // FIXED: Explicitly send localRoundWords down the HTTP stream on every sync cycle
                 const res = await fetch('/api/sync', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, buffered_words: localRoundWords, last_chat_id: localChatCounter }) });
                 if (res.status === 404) { window.location.reload(); return; }
                 const data = await res.json();
@@ -336,7 +337,8 @@
         function updateTimerDisplay(s) { document.getElementById('timer-display').innerText = `00:${String(s).padStart(2, '0')}`; }
         function renderLetters(l) { const t = document.getElementById('letter-tray'); t.innerHTML = ''; l.forEach(x => { const e = document.createElement('div'); e.className = 'letter-tile'; e.innerText = x; t.appendChild(e); }); }
         function shuffleTray() { if(localLetters.includes("?")) return; localLetters.sort(() => Math.random() - 0.5); renderLetters(localLetters); }
-        function escapeHtml(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+        function escapeHtml(s) { return s.replace(/&/g, "&amp;").replace(/\[/g, "&lt;").replace(/\]/g, "&gt;"); }
     </script>
 </body>
 </html>
+
