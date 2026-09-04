@@ -8,11 +8,18 @@ from flask import Flask, render_template, request, jsonify
 app = Flask(__name__, template_folder=os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates')))
 app.config['SECRET_KEY'] = os.urandom(24).hex()
 
-VALID_BASE_WORDS = [
-    "action", "actors", "advice", "angels", "artist", "assets", "backed", "baking", "beasts", "blames",
-    "boards", "brains", "breaks", "brides", "buyers", "cabins", "cables", "candle", "cards", "castle"
-]
-GLOBAL_DICTIONARY = {"act", "ace", "aim", "air", "and", "ant", "any", "ape", "apt", "arc", "are"}.union(set(VALID_BASE_WORDS))
+# Load filtered dictionary from file
+DICTIONARY_FILE = os.path.join(os.path.dirname(__file__), 'dictionary_filtered.txt')
+GLOBAL_DICTIONARY = set()
+if os.path.exists(DICTIONARY_FILE):
+    with open(DICTIONARY_FILE, 'r', encoding='utf-8') as f:
+        GLOBAL_DICTIONARY = set(line.strip().lower() for line in f if line.strip())
+
+# Filter only 6-letter words for base words from the dictionary if available
+VALID_BASE_WORDS = [w for w in GLOBAL_DICTIONARY if len(w) == 6]
+if not VALID_BASE_WORDS:
+    VALID_BASE_WORDS = ["action", "actors", "advice", "angels", "artist", "assets", "backed", "baking"]
+
 ROOMS = {}
 
 def moderate_text(text):
@@ -25,12 +32,11 @@ def moderate_text(text):
 class GameRoom:
     def __init__(self, room_id):
         self.room_id = room_id
-        self.game_type = "unselected"  # "unselected", "anagram", "twenty_questions"
+        self.game_type = "unselected"
         self.game_locked = False
         self.players = {}
         self.chat_history = []
         self.chat_counter = 0
-        # Anagram states
         self.base_word = ""
         self.scrambled_letters = []
         self.valid_anagrams = set()
@@ -42,15 +48,16 @@ class GameRoom:
         self.countdown_end = 0
         self.round_id = 0
         self.last_breakdown = None
-        # 20 Questions states
         self.tq_thinker_pid = None
         self.tq_secret_word = ""
         self.tq_questions = []
         self.tq_status = "waiting_thinker"
         self.tq_question_counter = 0
         self.generate_new_round()
+
     def generate_new_round(self):
         if self.game_type == "anagram":
+            # STRICTLY enforce 6-letter base words only
             self.base_word = random.choice(VALID_BASE_WORDS).lower()
             letters = list(self.base_word)
             while "".join(letters) == self.base_word: random.shuffle(letters)
@@ -76,7 +83,6 @@ class GameRoom:
         for p in self.players.values():
             p['current_round_words'] = []
             p['ready'] = False
-
     def evaluate_round_conclusion(self, skipped=False):
         if self.game_type != "anagram": return
         score_chart = {3: 100, 4: 400, 5: 1200, 6: 2000}
@@ -123,7 +129,9 @@ class GameRoom:
         now = time.time()
         self.players = {sid: p for sid, p in self.players.items() if now - p['last_seen'] < 10}
         new_chats = [c for c in self.chat_history if c["id"] > last_chat_id]
-        reveal_letters = self.timer_active or self.countdown_active
+        
+        # FIXED: Only reveal letters when timer is actively running, NOT during countdown flash
+        reveal_letters = self.timer_active
         letters_payload = self.scrambled_letters if reveal_letters else ["?"] * 6
         display_time = max(0, int(self.countdown_end - time.time())) if self.countdown_active else self.time_left
 
@@ -160,12 +168,9 @@ def sync_game():
     if not room or pid not in room.players: return jsonify({"error": "Expired"}), 404
     player = room.players[pid]
     player['last_seen'] = time.time()
-    
     if room.timer_active and room.game_type == "anagram":
-        # FIXED: Lower-case all text elements inside the list compilation mapping layer
         raw_words = data.get('buffered_words', [])
         player['current_round_words'] = [str(w).strip().lower() for w in raw_words]
-        
     room.check_timer()
     room.check_all_ready()
     breakdown_payload = player.get('last_breakdown')
@@ -208,7 +213,6 @@ def control_timer():
     pid = request.json.get('pid')
     action = request.json.get('action')
     if not room or pid not in room.players or not room.players[pid]['is_host']: return jsonify({"status": "denied"})
-    
     if action == "pause" and room.game_type == "anagram":
         if room.timer_active:
             room.time_left = max(0, int(room.end_timestamp - time.time()))
