@@ -26,7 +26,7 @@ class GameRoom:
         self.players = {}
         self.chat_history = []
         self.chat_counter = 0
-        # Anagram state
+        # Anagram properties
         self.base_word = ""
         self.scrambled_letters = []
         self.valid_anagrams = set()
@@ -37,11 +37,11 @@ class GameRoom:
         self.countdown_active = False
         self.countdown_end = 0
         self.round_id = 0
-        # 20 Questions state
+        # 20 Questions properties
         self.tq_thinker_pid = None
         self.tq_secret_word = ""
-        self.tq_questions = []  # list of {"id": int, "pid": str, "name": str, "text": str, "answer": None/Yes/No/Maybe/Correct}
-        self.tq_status = "waiting_thinker"  # "waiting_thinker", "active", "won"
+        self.tq_questions = []
+        self.tq_status = "waiting_thinker"  # "waiting_thinker", "waiting_word", "active", "won"
         self.tq_question_counter = 0
         self.generate_new_round()
     def generate_new_round(self):
@@ -76,31 +76,39 @@ class GameRoom:
         elif self.timer_active:
             self.time_left = int(self.end_timestamp - time.time())
             if self.time_left <= 0:
-                self.evaluate_round_conclusion()
+                self.generate_new_round()
                 return True
         return False
 
-    def evaluate_round_conclusion(self):
-        self.generate_new_round()
-
     def check_all_ready(self):
-        if not self.players: return False
-        if all(p['ready'] for p in self.players.values()) and not self.timer_active and not self.countdown_active and self.game_type == "anagram":
+        if not self.players or self.game_type != "anagram": return False
+        if all(p['ready'] for p in self.players.values()) and not self.timer_active and not self.countdown_active:
             for p in self.players.values(): p['score'] = 0
             self.countdown_active = True
             self.countdown_end = time.time() + 3
+            return True
         return False
 
     def get_state(self, last_chat_id=0):
         now = time.time()
         self.players = {sid: p for sid, p in self.players.items() if now - p['last_seen'] < 10}
         new_chats = [c for c in self.chat_history if c["id"] > last_chat_id]
+        
+        # FIXED: Reveal original scrambled letters during BOTH countdown and active rounds
+        reveal_letters = self.timer_active or self.countdown_active
+        letters_payload = self.scrambled_letters if reveal_letters else ["?"] * 6
+        
+        display_time = self.time_left
+        if self.countdown_active:
+            display_time = max(0, int(self.countdown_end - time.time()))
+
         return {
             "game_type": self.game_type,
-            "letters": self.scrambled_letters if self.timer_active else ["?"] * 6,
-            "time_left": max(0, int(self.countdown_end - time.time())) if self.countdown_active else self.time_left,
+            "letters": letters_payload,
+            "time_left": display_time,
             "timer_active": self.timer_active, "countdown_active": self.countdown_active, "round_id": self.round_id,
-            "new_chats": new_chats, "tq_thinker_pid": self.tq_thinker_pid, "tq_secret_word": self.tq_secret_word if self.tq_status == "won" else ("*" * len(self.tq_secret_word) if self.tq_secret_word else ""),
+            "new_chats": new_chats, "tq_thinker_pid": self.tq_thinker_pid, 
+            "tq_secret_word": self.tq_secret_word if self.tq_status == "won" else ("*" * len(self.tq_secret_word) if self.tq_secret_word else ""),
             "tq_status": self.tq_status, "tq_questions": self.tq_questions,
             "leaderboard": [{"sid": s, "name": p["name"], "score": p["score"], "is_host": p["is_host"], "ready": p["ready"]} for s, p in self.players.items()]
         }
@@ -117,7 +125,7 @@ def join_game():
     room = ROOMS[room_id]
     name = data.get('name', 'User').strip() or 'User'
     is_host = len(room.players) == 0
-    room.players[pid] = {"name": name, "score": 0, "current_round_words": [], "is_host": is_host, "last_seen": time.time(), "last_breakdown": None, "ready": False}
+    room.players[pid] = {"name": name, "score": 0, "current_round_words": [], "is_host": is_host, "last_seen": time.time(), "ready": False}
     return jsonify({"pid": pid, "is_host": is_host, "state": room.get_state()})
 
 @app.route('/api/sync', methods=['POST'])
@@ -137,6 +145,7 @@ def toggle_ready():
     pid = request.json.get('pid')
     if room and pid in room.players:
         room.players[pid]['ready'] = not room.players[pid]['ready']
+        room.check_all_ready()
     return jsonify({"state": room.get_state()})
 
 @app.route('/api/chat', methods=['POST'])
@@ -154,7 +163,7 @@ def game_switch():
     room = ROOMS.get(request.json.get('room'))
     pid = request.json.get('pid')
     gt = request.json.get('game_type')
-    if room and pid in room.players and room.players[pid]['is_host'] and gt in ['anagram', 'twenty_questions']:
+    if room and pid in room.players and room.players[pid]['is_host']:
         room.game_type = gt
         room.generate_new_round()
     return jsonify({"state": room.get_state()})
@@ -177,8 +186,11 @@ def tq_action():
             room.tq_questions.append({"id": room.tq_question_counter, "pid": pid, "name": room.players[pid]['name'], "text": request.json.get('text'), "answer": None})
     elif action == "answer_question" and room.tq_thinker_pid == pid:
         qid = request.json.get('qid')
-        ans = request.json.get('answer')  # Yes, No, Maybe, Correct
+        ans = request.json.get('answer')
         for q in room.tq_questions:
             if q['id'] == qid: q['answer'] = ans
         if ans == "Correct": room.tq_status = "won"
     return jsonify({"state": room.get_state()})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5001, debug=False)
