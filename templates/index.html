@@ -69,7 +69,7 @@
             </div>
             <span class="room-tag" id="room-display">Room: lounge</span>
             
-            <!-- Anagram Panel -->
+            <!-- Anagram Panel Layout -->
             <div id="panel-anagram" class="game-section">
                 <div class="timer-banner" id="timer-display">00:60</div>
                 <div id="countdown-flash-block" class="countdown-flash-banner">3</div>
@@ -80,21 +80,23 @@
                     <button type="submit" id="guess-submit-btn" class="btn-primary" disabled>Add</button>
                 </div></form>
                 <div id="local-words-box" style="margin-bottom:10px;"></div>
-                <button class="btn-secondary" onclick="shuffleTray()">🔀 Shuffle</button>
-                <button class="btn-success" id="ready-toggle-btn" onclick="toggleReadyState()">✓ Ready</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-secondary" onclick="shuffleTray()">🔀 Shuffle</button>
+                    <button class="btn-success" id="ready-toggle-btn" onclick="toggleReadyState()">✓ Ready</button>
+                </div>
             </div>
 
-            <!-- 20 Questions Panel -->
+            <!-- 20 Questions Panel Layout -->
             <div id="panel-tq" class="game-section">
-                <div class="timer-banner" id="tq-status-banner">Status: Waiting for Thinker</div>
-                <p style="margin-bottom:8px;">Secret Word: <strong id="tq-word-reveal" style="color:var(--accent-warn);"></strong></p>
+                <div class="timer-banner" id="tq-status-banner">Status: Waiting</div>
+                <p style="margin-bottom:8px;">Secret Word Tracker: <strong id="tq-word-reveal" style="color:var(--accent-warn); font-family:monospace; letter-spacing:2px;"></strong></p>
                 <div id="tq-controls-area" style="margin-bottom:12px;"></div>
                 <h3>Questions (<span id="tq-count-num">0</span>/20):</h3>
                 <div class="tq-q-box" id="tq-questions-list"></div>
                 <div id="tq-ask-area" style="display:none;">
                     <div class="control-group">
                         <input type="text" id="tq-question-input" placeholder="Ask a yes/no question...">
-                        <button class="btn-primary" onclick="tqSubmitQuestion()">Ask</button>
+                        <button class="btn-primary" onclick="tqSubmitQuestion()">Ask Question</button>
                     </div>
                 </div>
             </div>
@@ -117,7 +119,7 @@
     <script>
         let currentRoom = "lounge", myPid = null, amHost = false, localChatCounter = 0;
         let localLetters = [], localRoundWords = [], currentRoundId = -1, serverLettersSig = "";
-        let currentStateData = null;
+        let cachedTqStatus = ""; // Cache signature tracker to block active cursor text wipes
 
         async function connectToLobby() {
             const name = document.getElementById('username-input').value.trim();
@@ -142,7 +144,7 @@
         }
 
         function handleBroadcast(state, isHost) {
-            amHost = isHost; currentStateData = state;
+            amHost = isHost;
             document.getElementById('host-game-switcher').style.display = amHost ? 'block' : 'none';
             document.getElementById('game-select-dropdown').value = state.game_type;
             
@@ -162,98 +164,93 @@
             const tbody = document.getElementById('leaderboard-body'); tbody.innerHTML = '';
             state.leaderboard.forEach(p => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td><strong>${p.name}${p.is_host ? ' 👑':''}</strong></td><td>${p.ready ? 'READY':'WAITING'}</td><td>${p.score} pts</td>`;
+                const readyLabel = p.ready ? `<span style="color:var(--accent-success); font-weight:bold;">READY</span>` : `<span style="color:var(--text-muted);">WAITING</span>`;
+                tr.innerHTML = `<td><strong>${p.name}${p.is_host ? ' 👑':''}</strong></td><td>${readyLabel}</td><td>${p.score} pts</td>`;
                 tbody.appendChild(tr);
             });
         }
     </script>
     <script>
         function handleAnagramBroadcast(state) {
+            const flashBlock = document.getElementById('countdown-flash-block');
+            const txtInput = document.getElementById('guess-input'), btnSubmit = document.getElementById('guess-submit-btn'), statusLabel = document.getElementById('lock-status-msg');
+            
             if (state.round_id !== currentRoundId) {
                 currentRoundId = state.round_id; localLetters = [...state.letters]; renderLetters(localLetters);
             }
+            let comingSig = state.letters.join("");
+            if (comingSig !== serverLettersSig) {
+                serverLettersSig = comingSig; localLetters = [...state.letters]; renderLetters(localLetters);
+            }
+            
             updateTimerDisplay(state.time_left);
-            const txtInput = document.getElementById('guess-input'), btnSubmit = document.getElementById('guess-submit-btn'), statusLabel = document.getElementById('lock-status-msg');
-            if (state.timer_active) {
-                txtInput.disabled = false; btnSubmit.disabled = false; statusLabel.innerText = "RUNNING";
+            
+            if (state.countdown_active) {
+                flashBlock.style.display = 'block'; flashBlock.innerText = state.time_left;
+                txtInput.disabled = true; btnSubmit.disabled = true; statusLabel.innerText = "COUNTDOWN FLASHING";
             } else {
-                txtInput.disabled = true; btnSubmit.disabled = true; statusLabel.innerText = "LOCKED";
+                flashBlock.style.display = 'none';
+                if (state.timer_active) {
+                    txtInput.disabled = false; btnSubmit.disabled = false; statusLabel.innerText = "ROUND ACTIVE";
+                } else {
+                    txtInput.disabled = true; btnSubmit.disabled = true; statusLabel.innerText = "BOARD LOCKED";
+                }
             }
         }
 
         function handleTqBroadcast(state) {
-            document.getElementById('tq-word-reveal').innerText = state.tq_secret_word || '(Hidden)';
+            document.getElementById('tq-word-reveal').innerText = state.tq_secret_word || '______';
             document.getElementById('tq-count-num').innerText = state.tq_questions.length;
             const controls = document.getElementById('tq-controls-area'), askArea = document.getElementById('tq-ask-area');
             const banner = document.getElementById('tq-status-banner');
             
-            if (state.tq_status === 'waiting_thinker') {
-                banner.innerText = "Need a Thinker!";
-                controls.innerHTML = `<button class="btn-primary" onclick="tqActionReq('become_thinker')">Volunteer to be Thinker</button>`;
-                askArea.style.display = 'none';
-            } else if (state.tq_status === 'waiting_word') {
-                if (state.tq_thinker_pid === myPid) {
-                    banner.innerText = "You are the Thinker!";
-                    controls.innerHTML = `<div class="control-group"><input type="text" id="tq-secret-input" placeholder="Secret word..."><button class="btn-success" onclick="tqSetWord()">Set Word</button></div>`;
-                } else { banner.innerText = "Thinker is choosing a word..."; controls.innerHTML = ''; }
-                askArea.style.display = 'none';
-            } else if (state.tq_status === 'active') {
-                banner.innerText = state.tq_thinker_pid === myPid ? "You are the Thinker! Answer questions below." : "Game Active! Ask questions.";
-                controls.innerHTML = '';
-                askArea.style.display = state.tq_thinker_pid === myPid ? 'none' : 'block';
-            } else if (state.tq_status === 'won') {
-                banner.innerText = "Word Found! Round Over.";
-                controls.innerHTML = `<button class="btn-success" onclick="tqActionReq('become_thinker')">New Round (Volunteer)</button>`;
-                askArea.style.display = 'none';
+            // FIXED: Only re-render layout wrapper components if room structural mode state shifts
+            if (cachedTqStatus !== state.tq_status || (state.tq_status === 'waiting_word' && controls.children.length === 0)) {
+                cachedTqStatus = state.tq_status;
+                if (state.tq_status === 'waiting_thinker') {
+                    banner.innerText = "Status: Need a Thinker!";
+                    controls.innerHTML = `<button class="btn-primary" onclick="tqActionReq('become_thinker')">Volunteer to be Thinker</button>`;
+                    askArea.style.display = 'none';
+                } else if (state.tq_status === 'waiting_word') {
+                    if (state.tq_thinker_pid === myPid) {
+                        banner.innerText = "Status: Enter your secret word below!";
+                        controls.innerHTML = `<div class="control-group"><input type="text" id="tq-secret-input" placeholder="Type secret word..."><button class="btn-success" onclick="tqSetWord()">Set Word</button></div>`;
+                    } else { banner.innerText = "Status: Thinker is setting word..."; controls.innerHTML = ''; }
+                    askArea.style.display = 'none';
+                } else if (state.tq_status === 'active') {
+                    banner.innerText = state.tq_thinker_pid === myPid ? "Status: Answer Questions!" : "Status: Guessing Phase Active!";
+                    controls.innerHTML = '';
+                    askArea.style.display = state.tq_thinker_pid === myPid ? 'none' : 'block';
+                } else if (state.tq_status === 'won') {
+                    banner.innerText = "Status: Word Solved!";
+                    controls.innerHTML = `<button class="btn-success" onclick="tqActionReq('become_thinker')">Start New Round</button>`;
+                    askArea.style.display = 'none';
+                }
             }
             
             const qList = document.getElementById('tq-questions-list'); qList.innerHTML = '';
             state.tq_questions.forEach(q => {
-                const div = document.createElement('div'); div.style.cssText = "margin-bottom:6px; padding:6px; background:#1e293b; border-radius:6px;";
-                let ansHtml = q.answer ? `<span style="color:var(--accent-success); font-weight:bold;">${q.answer}</span>` : `<span style="color:var(--accent-warn);">Pending</span>`;
+                const div = document.createElement('div'); div.style.cssText = "margin-bottom:6px; padding:6px; background:#0f172a; border-radius:6px; border:1px solid #334155;";
+                let ansHtml = q.answer ? `<span style="color:var(--accent-success); font-weight:bold; text-transform:uppercase;">[${q.answer}]</span>` : `<span style="color:var(--accent-warn);">[PENDING]</span>`;
                 if (state.tq_thinker_pid === myPid && !q.answer) {
-                    ansHtml = `<button class="btn-success" style="padding:2px 6px; font-size:0.8rem;" onclick="tqAnswerQ(${q.id}, 'Yes')">Yes</button>
-                               <button class="btn-danger" style="padding:2px 6px; font-size:0.8rem;" onclick="tqAnswerQ(${q.id}, 'No')">No</button>
-                               <button class="btn-secondary" style="padding:2px 6px; font-size:0.8rem;" onclick="tqAnswerQ(${q.id}, 'Maybe')">Maybe</button>
-                               <button class="btn-primary" style="padding:2px 6px; font-size:0.8rem;" onclick="tqAnswerQ(${q.id}, 'Correct')">Correct!</button>`;
+                    ansHtml = `<button class="btn-success" style="padding:2px 8px; font-size:0.8rem; margin-right:4px;" onclick="tqAnswerQ(${q.id}, 'Yes')">Yes</button>
+                               <button class="btn-danger" style="padding:2px 8px; font-size:0.8rem; margin-right:4px;" onclick="tqAnswerQ(${q.id}, 'No')">No</button>
+                               <button class="btn-secondary" style="padding:2px 8px; font-size:0.8rem; margin-right:4px;" onclick="tqAnswerQ(${q.id}, 'Maybe')">Maybe</button>
+                               <button class="btn-primary" style="padding:2px 8px; font-size:0.8rem;" onclick="tqAnswerQ(${q.id}, 'Correct')">That's the Word!</button>`;
                 }
                 div.innerHTML = `<strong>${q.name}:</strong> ${escapeHtml(q.text)} &rarr; ${ansHtml}`;
                 qList.appendChild(div);
             });
         }
 
-        async function switchGameMode(gt) {
-            const res = await fetch('/api/game_switch', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, game_type: gt }) });
-            handleBroadcast((await res.json()).state, amHost);
-        }
-        async function tqActionReq(action) {
-            const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action }) });
-            handleBroadcast((await res.json()).state, amHost);
-        }
-        async function tqSetWord() {
-            const w = document.getElementById('tq-secret-input').value;
-            const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'set_word', word: w }) });
-            handleBroadcast((await res.json()).state, amHost);
-        }
-        async function tqSubmitQuestion() {
-            const txt = document.getElementById('tq-question-input').value; document.getElementById('tq-question-input').value = '';
-            const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'ask_question', text: txt }) });
-            handleBroadcast((await res.json()).state, amHost);
-        }
-        async function tqAnswerQ(qid, answer) {
-            const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'answer_question', qid, answer }) });
-            handleBroadcast((await res.json()).state, amHost);
-        }
-        async function toggleReadyState() {
-            const res = await fetch('/api/ready', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid }) });
-            handleBroadcast((await res.json()).state, amHost);
-        }
-        async function sendChatMessage(e) {
-            e.preventDefault();
-            const input = document.getElementById('chat-input'), msg = input.value.trim(); if(!msg) return; input.value = '';
-            const res = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, msg, last_chat_id: localChatCounter }) });
-            handleBroadcast((await res.json()).state, amHost);
-        }
+        async function switchGameMode(gt) { const res = await fetch('/api/game_switch', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, game_type: gt }) }); handleBroadcast((await res.json()).state, amHost); }
+        async function tqActionReq(action) { const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action }) }); handleBroadcast((await res.json()).state, amHost); }
+        async function tqSetWord() { const w = document.getElementById('tq-secret-input').value; const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'set_word', word: w }) }); handleBroadcast((await res.json()).state, amHost); }
+        async function tqSubmitQuestion() { const t = document.getElementById('tq-question-input').value; document.getElementById('tq-question-input').value = ''; const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'ask_question', text: t }) }); handleBroadcast((await res.json()).state, amHost); }
+        async function tqAnswerQ(qid, answer) { const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'answer_question', qid, answer }) }); handleBroadcast((await res.json()).state, amHost); }
+        async function toggleReadyState() { const res = await fetch('/api/ready', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid }) }); handleBroadcast((await res.json()).state, amHost); }
+        async function sendChatMessage(e) { e.preventDefault(); const input = document.getElementById('chat-input'), msg = input.value.trim(); if(!msg) return; input.value = ''; const res = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, msg, last_chat_id: localChatCounter }) }); handleBroadcast((await res.json()).state, amHost); }
+        
         function appendIncrementalChats(newChatsList) {
             if (!newChatsList || !newChatsList.length) return;
             const box = document.getElementById('chat-stream-box');
@@ -267,9 +264,10 @@
             });
             box.scrollTop = box.scrollHeight;
         }
+
         function updateTimerDisplay(s) { document.getElementById('timer-display').innerText = `00:${String(s).padStart(2, '0')}`; }
         function renderLetters(l) { const t = document.getElementById('letter-tray'); t.innerHTML = ''; l.forEach(x => { const e = document.createElement('div'); e.className = 'letter-tile'; e.innerText = x; t.appendChild(e); }); }
-        function shuffleTray() { localLetters.sort(() => Math.random() - 0.5); renderLetters(localLetters); }
+        function shuffleTray() { if(localLetters.includes("?")) return; localLetters.sort(() => Math.random() - 0.5); renderLetters(localLetters); }
         function submitWordLocal(e) { e.preventDefault(); }
         function escapeHtml(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
     </script>
