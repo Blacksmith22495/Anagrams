@@ -8,7 +8,10 @@ from flask import Flask, render_template, request, jsonify
 app = Flask(__name__, template_folder=os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates')))
 app.config['SECRET_KEY'] = os.urandom(24).hex()
 
-VALID_BASE_WORDS = ["action", "actors", "advice", "angels", "artist", "assets", "backed", "baking", "beasts", "blames"]
+VALID_BASE_WORDS = [
+    "action", "actors", "advice", "angels", "artist", "assets", "backed", "baking", "beasts", "blames",
+    "boards", "brains", "breaks", "brides", "buyers", "cabins", "cables", "candle", "cards", "castle"
+]
 GLOBAL_DICTIONARY = {"act", "ace", "aim", "air", "and", "ant", "any", "ape", "apt", "arc", "are"}.union(set(VALID_BASE_WORDS))
 ROOMS = {}
 
@@ -22,11 +25,12 @@ def moderate_text(text):
 class GameRoom:
     def __init__(self, room_id):
         self.room_id = room_id
-        self.game_type = "anagram"  # "anagram" or "twenty_questions"
+        self.game_type = "unselected"  # "unselected", "anagram", or "twenty_questions"
+        self.game_locked = False
         self.players = {}
         self.chat_history = []
         self.chat_counter = 0
-        # Anagram properties
+        # Anagram state parameters
         self.base_word = ""
         self.scrambled_letters = []
         self.valid_anagrams = set()
@@ -37,13 +41,12 @@ class GameRoom:
         self.countdown_active = False
         self.countdown_end = 0
         self.round_id = 0
-        # 20 Questions properties
+        # 20 Questions state parameters
         self.tq_thinker_pid = None
         self.tq_secret_word = ""
         self.tq_questions = []
-        self.tq_status = "waiting_thinker"  # "waiting_thinker", "waiting_word", "active", "won"
+        self.tq_status = "waiting_thinker"
         self.tq_question_counter = 0
-        self.generate_new_round()
     def generate_new_round(self):
         if self.game_type == "anagram":
             self.base_word = random.choice(VALID_BASE_WORDS)
@@ -94,7 +97,6 @@ class GameRoom:
         self.players = {sid: p for sid, p in self.players.items() if now - p['last_seen'] < 10}
         new_chats = [c for c in self.chat_history if c["id"] > last_chat_id]
         
-        # FIXED: Reveal original scrambled letters during BOTH countdown and active rounds
         reveal_letters = self.timer_active or self.countdown_active
         letters_payload = self.scrambled_letters if reveal_letters else ["?"] * 6
         
@@ -103,12 +105,12 @@ class GameRoom:
             display_time = max(0, int(self.countdown_end - time.time()))
 
         return {
-            "game_type": self.game_type,
-            "letters": letters_payload,
-            "time_left": display_time,
+            "game_type": self.game_type, "game_locked": self.game_locked,
+            "letters": letters_payload, "time_left": display_time,
             "timer_active": self.timer_active, "countdown_active": self.countdown_active, "round_id": self.round_id,
             "new_chats": new_chats, "tq_thinker_pid": self.tq_thinker_pid, 
-            "tq_secret_word": self.tq_secret_word if self.tq_status == "won" else ("*" * len(self.tq_secret_word) if self.tq_secret_word else ""),
+            # FIXED: Do not output word lengths in 20 questions tracker panel
+            "tq_secret_word": self.tq_secret_word if self.tq_status == "won" else ("???" if self.tq_secret_word else ""),
             "tq_status": self.tq_status, "tq_questions": self.tq_questions,
             "leaderboard": [{"sid": s, "name": p["name"], "score": p["score"], "is_host": p["is_host"], "ready": p["ready"]} for s, p in self.players.items()]
         }
@@ -134,16 +136,21 @@ def sync_game():
     room = ROOMS.get(data.get('room'))
     pid = data.get('pid')
     if not room or pid not in room.players: return jsonify({"error": "Expired"}), 404
-    room.players[pid]['last_seen'] = time.time()
+    player = room.players[pid]
+    player['last_seen'] = time.time()
+    
+    if room.timer_active and room.game_type == "anagram":
+        player['current_round_words'] = data.get('buffered_words', [])
+        
     room.check_timer()
     room.check_all_ready()
-    return jsonify({"state": room.get_state(int(data.get('last_chat_id', 0))), "is_host": room.players[pid]['is_host']})
+    return jsonify({"state": room.get_state(int(data.get('last_chat_id', 0))), "is_host": player['is_host']})
 
 @app.route('/api/ready', methods=['POST'])
 def toggle_ready():
     room = ROOMS.get(request.json.get('room'))
     pid = request.json.get('pid')
-    if room and pid in room.players:
+    if room and pid in room.players and room.game_type == "anagram":
         room.players[pid]['ready'] = not room.players[pid]['ready']
         room.check_all_ready()
     return jsonify({"state": room.get_state()})
@@ -163,8 +170,9 @@ def game_switch():
     room = ROOMS.get(request.json.get('room'))
     pid = request.json.get('pid')
     gt = request.json.get('game_type')
-    if room and pid in room.players and room.players[pid]['is_host']:
+    if room and pid in room.players and room.players[pid]['is_host'] and not room.game_locked:
         room.game_type = gt
+        room.game_locked = True  # FIXED: Locks room permanently to this single game setup choice
         room.generate_new_round()
     return jsonify({"state": room.get_state()})
 
@@ -173,7 +181,7 @@ def tq_action():
     room = ROOMS.get(request.json.get('room'))
     pid = request.json.get('pid')
     action = request.json.get('action')
-    if not room or pid not in room.players: return jsonify({"status": "denied"})
+    if not room or pid not in room.players or room.game_type != "twenty_questions": return jsonify({"status": "denied"})
     if action == "become_thinker" and not room.tq_thinker_pid:
         room.tq_thinker_pid = pid
         room.tq_status = "waiting_word"
