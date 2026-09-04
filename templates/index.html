@@ -59,15 +59,22 @@
     <div class="app-container">
         <div class="panel main-arena">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <h1 id="game-title">Game Lounge</h1>
+                <h1 id="game-title">Select Room Game</h1>
                 <div id="host-game-switcher" style="display:none;">
-                    <select id="game-select-dropdown" onchange="switchGameMode(this.value)" style="padding:6px; background:#0f172a; color:white; border-radius:6px;">
-                        <option value="anagram">Anagrams</option>
-                        <option value="twenty_questions">20 Questions</option>
+                    <select id="game-select-dropdown" onchange="switchGameMode(this.value)" style="padding:8px; background:#0f172a; color:white; border:2px solid #334155; border-radius:6px; font-weight:bold;">
+                        <option value="unselected">-- Select Game Mode --</option>
+                        <option value="anagram">Anagrams Game</option>
+                        <option value="twenty_questions">20 Questions Game</option>
                     </select>
                 </div>
             </div>
             <span class="room-tag" id="room-display">Room: lounge</span>
+            
+            <!-- Room Selection Screen layout -->
+            <div id="panel-unselected" class="game-section" style="display:block; padding:30px 10px; text-align:center;">
+                <h3 style="color:var(--accent-warn);">Lounge Initialization Phase</h3>
+                <p style="color:var(--text-muted); margin-top:8px;" id="lounge-wait-text">Waiting for host to pick this room's locked game type...</p>
+            </div>
             
             <!-- Anagram Panel Layout -->
             <div id="panel-anagram" class="game-section">
@@ -76,13 +83,13 @@
                 <div class="status-msg" id="lock-status-msg">WAITING</div>
                 <div class="letter-tray" id="letter-tray"></div>
                 <form onsubmit="submitWordLocal(event)"><div class="control-group">
-                    <input type="text" id="guess-input" placeholder="Type anagram..." disabled>
-                    <button type="submit" id="guess-submit-btn" class="btn-primary" disabled>Add</button>
+                    <input type="text" id="guess-input" placeholder="Type anagram & press Enter..." autocomplete="off" disabled>
+                    <button type="submit" id="guess-submit-btn" class="btn-primary" disabled>Add Word</button>
                 </div></form>
-                <div id="local-words-box" style="margin-bottom:10px;"></div>
+                <div class="my-words-box" id="local-words-box" style="margin-bottom:15px; min-height:50px;"></div>
                 <div style="display:flex; gap:10px;">
                     <button class="btn-secondary" onclick="shuffleTray()">🔀 Shuffle</button>
-                    <button class="btn-success" id="ready-toggle-btn" onclick="toggleReadyState()">✓ Ready</button>
+                    <button class="btn-success" id="ready-toggle-btn" onclick="toggleReadyState()">✓ Ready for Next Round</button>
                 </div>
             </div>
 
@@ -119,7 +126,7 @@
     <script>
         let currentRoom = "lounge", myPid = null, amHost = false, localChatCounter = 0;
         let localLetters = [], localRoundWords = [], currentRoundId = -1, serverLettersSig = "";
-        let cachedTqStatus = ""; // Cache signature tracker to block active cursor text wipes
+        let cachedTqStatus = "";
 
         async function connectToLobby() {
             const name = document.getElementById('username-input').value.trim();
@@ -136,7 +143,7 @@
 
         async function syncLoop() {
             try {
-                const res = await fetch('/api/sync', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, last_chat_id: localChatCounter }) });
+                const res = await fetch('/api/sync', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, buffered_words: localRoundWords, last_chat_id: localChatCounter }) });
                 if (res.status === 404) { window.location.reload(); return; }
                 const data = await res.json();
                 handleBroadcast(data.state, data.is_host);
@@ -145,18 +152,29 @@
 
         function handleBroadcast(state, isHost) {
             amHost = isHost;
-            document.getElementById('host-game-switcher').style.display = amHost ? 'block' : 'none';
-            document.getElementById('game-select-dropdown').value = state.game_type;
             
+            // FIXED: Only show selector if room has not locked down a specific game rule type yet
+            if (!state.game_locked && amHost) {
+                document.getElementById('host-game-switcher').style.display = 'block';
+            } else {
+                document.getElementById('host-game-switcher').style.display = 'none';
+            }
+            
+            document.getElementById('panel-unselected').style.display = state.game_type === 'unselected' ? 'block' : 'none';
             document.getElementById('panel-anagram').style.display = state.game_type === 'anagram' ? 'block' : 'none';
             document.getElementById('panel-tq').style.display = state.game_type === 'twenty_questions' ? 'block' : 'none';
+            
+            if (state.game_type === 'unselected') {
+                document.getElementById('game-title').innerText = "Lounge Lobby";
+                document.getElementById('lounge-wait-text').innerText = amHost ? "👑 Please select this room's locked game type above." : "Waiting for host to pick this room's locked game type...";
+            }
             
             appendIncrementalChats(state.new_chats);
             
             if (state.game_type === 'anagram') {
                 document.getElementById('game-title').innerText = "Anagram Arena";
                 handleAnagramBroadcast(state);
-            } else {
+            } else if (state.game_type === 'twenty_questions') {
                 document.getElementById('game-title').innerText = "20 Questions";
                 handleTqBroadcast(state);
             }
@@ -165,7 +183,7 @@
             state.leaderboard.forEach(p => {
                 const tr = document.createElement('tr');
                 const readyLabel = p.ready ? `<span style="color:var(--accent-success); font-weight:bold;">READY</span>` : `<span style="color:var(--text-muted);">WAITING</span>`;
-                tr.innerHTML = `<td><strong>${p.name}${p.is_host ? ' 👑':''}</strong></td><td>${readyLabel}</td><td>${p.score} pts</td>`;
+                tr.innerHTML = `<td><strong>${p.name}${p.is_host ? ' 👑':''}</strong></td><td>${state.game_type === 'anagram' ? readyLabel : '-'}</td><td>${p.score} pts</td>`;
                 tbody.appendChild(tr);
             });
         }
@@ -174,9 +192,11 @@
         function handleAnagramBroadcast(state) {
             const flashBlock = document.getElementById('countdown-flash-block');
             const txtInput = document.getElementById('guess-input'), btnSubmit = document.getElementById('guess-submit-btn'), statusLabel = document.getElementById('lock-status-msg');
+            const readyBtn = document.getElementById('ready-toggle-btn');
             
             if (state.round_id !== currentRoundId) {
                 currentRoundId = state.round_id; localLetters = [...state.letters]; renderLetters(localLetters);
+                localRoundWords = []; renderLocalWords();
             }
             let comingSig = state.letters.join("");
             if (comingSig !== serverLettersSig) {
@@ -187,24 +207,54 @@
             
             if (state.countdown_active) {
                 flashBlock.style.display = 'block'; flashBlock.innerText = state.time_left;
-                txtInput.disabled = true; btnSubmit.disabled = true; statusLabel.innerText = "COUNTDOWN FLASHING";
+                txtInput.disabled = true; btnSubmit.disabled = true; readyBtn.disabled = true;
+                statusLabel.innerText = "GET READY!"; statusLabel.style.color = "var(--accent-error)";
             } else {
                 flashBlock.style.display = 'none';
                 if (state.timer_active) {
-                    txtInput.disabled = false; btnSubmit.disabled = false; statusLabel.innerText = "ROUND ACTIVE";
+                    txtInput.disabled = false; btnSubmit.disabled = false; readyBtn.disabled = true;
+                    statusLabel.innerText = "ROUND RUNNING - ENTRY ACTIVE"; statusLabel.style.color = "var(--accent-success)";
                 } else {
-                    txtInput.disabled = true; btnSubmit.disabled = true; statusLabel.innerText = "BOARD LOCKED";
+                    txtInput.disabled = true; btnSubmit.disabled = true; readyBtn.disabled = false;
+                    statusLabel.innerText = "ROUND FINISHED - READY UP"; statusLabel.style.color = "var(--accent-warn)";
                 }
             }
         }
 
+        function submitWordLocal(e) {
+            e.preventDefault();
+            const input = document.getElementById('guess-input');
+            const guess = input.value.trim().toLowerCase().replace(/[^a-z]/g, "");
+            input.value = '';
+            if (!guess) return;
+
+            if (guess.length < 3 || guess.length > 6) { alert("Must be 3-6 letters!"); return; }
+            if (localRoundWords.includes(guess)) { alert("Word already on board!"); return; }
+
+            let trayPool = [...localLetters];
+            for (let char of guess) {
+                let idx = trayPool.indexOf(char);
+                if (idx === -1) { alert(`Letter "${char.toUpperCase()}" is not in the tray grid!`); return; }
+                trayPool.splice(idx, 1);
+            }
+            localRoundWords.push(guess);
+            renderLocalWords();
+            input.focus();
+        }
+
+        function renderLocalWords() {
+            const box = document.getElementById('local-words-box'); box.innerHTML = '';
+            localRoundWords.forEach(word => {
+                const span = document.createElement('span'); span.className = 'word-token'; span.innerText = word; box.appendChild(span);
+            });
+        }
+
         function handleTqBroadcast(state) {
-            document.getElementById('tq-word-reveal').innerText = state.tq_secret_word || '______';
+            document.getElementById('tq-word-reveal').innerText = state.tq_secret_word || '???';
             document.getElementById('tq-count-num').innerText = state.tq_questions.length;
             const controls = document.getElementById('tq-controls-area'), askArea = document.getElementById('tq-ask-area');
             const banner = document.getElementById('tq-status-banner');
             
-            // FIXED: Only re-render layout wrapper components if room structural mode state shifts
             if (cachedTqStatus !== state.tq_status || (state.tq_status === 'waiting_word' && controls.children.length === 0)) {
                 cachedTqStatus = state.tq_status;
                 if (state.tq_status === 'waiting_thinker') {
@@ -238,11 +288,11 @@
                                <button class="btn-secondary" style="padding:2px 8px; font-size:0.8rem; margin-right:4px;" onclick="tqAnswerQ(${q.id}, 'Maybe')">Maybe</button>
                                <button class="btn-primary" style="padding:2px 8px; font-size:0.8rem;" onclick="tqAnswerQ(${q.id}, 'Correct')">That's the Word!</button>`;
                 }
-                div.innerHTML = `<strong>${q.name}:</strong> ${escapeHtml(q.text)} &rarr; ${ansHtml}`;
-                qList.appendChild(div);
+                div.innerHTML = `<strong>${q.name}:</strong> ${escapeHtml(q.text)} &rarr; ${ansHtml}`; qList.appendChild(div);
             });
         }
-
+    </script>
+    <script>
         async function switchGameMode(gt) { const res = await fetch('/api/game_switch', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, game_type: gt }) }); handleBroadcast((await res.json()).state, amHost); }
         async function tqActionReq(action) { const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action }) }); handleBroadcast((await res.json()).state, amHost); }
         async function tqSetWord() { const w = document.getElementById('tq-secret-input').value; const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'set_word', word: w }) }); handleBroadcast((await res.json()).state, amHost); }
@@ -252,23 +302,13 @@
         async function sendChatMessage(e) { e.preventDefault(); const input = document.getElementById('chat-input'), msg = input.value.trim(); if(!msg) return; input.value = ''; const res = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, msg, last_chat_id: localChatCounter }) }); handleBroadcast((await res.json()).state, amHost); }
         
         function appendIncrementalChats(newChatsList) {
-            if (!newChatsList || !newChatsList.length) return;
-            const box = document.getElementById('chat-stream-box');
-            newChatsList.forEach(c => {
-                if (c.id > localChatCounter) {
-                    localChatCounter = c.id;
-                    const row = document.createElement('div'); row.className = 'chat-row';
-                    row.innerHTML = `<span class="chat-name">${escapeHtml(c.name)}:</span><span>${escapeHtml(c.msg)}</span>`;
-                    box.appendChild(row);
-                }
-            });
+            if (!newChatsList || !newChatsList.length) return; const box = document.getElementById('chat-stream-box');
+            newChatsList.forEach(c => { if (c.id > localChatCounter) { localChatCounter = c.id; const row = document.createElement('div'); row.className = 'chat-row'; row.innerHTML = `<span class="chat-name">${escapeHtml(c.name)}:</span><span>${escapeHtml(c.msg)}</span>`; box.appendChild(row); } });
             box.scrollTop = box.scrollHeight;
         }
-
         function updateTimerDisplay(s) { document.getElementById('timer-display').innerText = `00:${String(s).padStart(2, '0')}`; }
         function renderLetters(l) { const t = document.getElementById('letter-tray'); t.innerHTML = ''; l.forEach(x => { const e = document.createElement('div'); e.className = 'letter-tile'; e.innerText = x; t.appendChild(e); }); }
         function shuffleTray() { if(localLetters.includes("?")) return; localLetters.sort(() => Math.random() - 0.5); renderLetters(localLetters); }
-        function submitWordLocal(e) { e.preventDefault(); }
         function escapeHtml(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
     </script>
 </body>
