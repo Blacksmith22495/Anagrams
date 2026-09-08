@@ -1,345 +1,2826 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>EduMatrix Study Space</title>
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='Firefly_RemoveBackground.png') }}">
+
+    <link
+        rel="icon"
+        type="image/png"
+        href="{{ url_for('static', filename='Firefly_RemoveBackground.png') }}"
+    >
+
     <style>
         :root {
-            --bg-main: #121824; --panel-bg: #1e293b; --accent: #3b82f6;
-            --accent-success: #10b981; --accent-warn: #f59e0b; --accent-error: #ef4444;
-            --text-light: #f8fafc; --text-muted: #94a3b8;
+            --bg-main: #121824;
+            --panel-bg: #1e293b;
+            --accent: #3b82f6;
+            --accent-success: #10b981;
+            --accent-warn: #f59e0b;
+            --accent-error: #ef4444;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
-        body { background-color: var(--bg-main); color: var(--text-light); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-        .app-container { width: 100%; max-width: 1100px; display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
-        @media (max-width: 768px) { .app-container { grid-template-columns: 1fr; } }
-        .panel { background-color: var(--panel-bg); border-radius: 12px; padding: 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); position: relative; }
-        .sidebar-column { display: flex; flex-direction: column; gap: 20px; }
-        h1 { color: var(--text-light); margin-bottom: 8px; font-weight: 700; }
-        .room-tag { font-size: 0.9rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 4px 12px; border-radius: 20px; display: inline-block; }
-        .timer-banner { font-size: 2.2rem; font-weight: 800; text-align: center; margin: 15px 0; color: var(--accent-warn); font-family: monospace; }
-        .status-msg { text-align: center; font-weight: bold; margin-bottom: 15px; color: var(--accent-error); font-size: 1.1rem; }
-        @keyframes alert-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.03); } }
-        .countdown-flash-banner { font-size: 3rem; font-weight: 900; text-align: center; color: var(--accent-error); animation: alert-pulse 0.5s linear infinite; margin: 20px 0; display: none; }
-        .letter-tray { display: flex; gap: 10px; justify-content: center; margin: 20px 0; min-height: 60px; }
-        .letter-tile { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; width: 55px; height: 55px; display: flex; justify-content: center; align-items: center; font-size: 1.8rem; font-weight: bold; border-radius: 8px; text-transform: uppercase; }
-        .control-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        input[type="text"], input[type="number"] { padding: 12px 16px; border-radius: 8px; border: 2px solid #334155; background-color: #0f172a; color: white; font-size: 1.1rem; outline: none; flex: 1; }
-        input:disabled, button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 1100px;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background-color: var(--panel-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+            position: relative;
+        }
+
+        .sidebar-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 {
+            color: var(--text-light);
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .room-tag {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.05);
+            padding: 4px 12px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        .timer-banner {
+            font-size: 2.2rem;
+            font-weight: 800;
+            text-align: center;
+            margin: 15px 0;
+            color: var(--accent-warn);
+            font-family: monospace;
+        }
+
+        .status-msg {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: var(--accent-error);
+            font-size: 1.1rem;
+        }
+
+        @keyframes alert-pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.4;
+                transform: scale(1.03);
+            }
+        }
+
+        .countdown-flash-banner {
+            font-size: 3rem;
+            font-weight: 900;
+            text-align: center;
+            color: var(--accent-error);
+            animation: alert-pulse 0.5s linear infinite;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .letter-tray {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+            min-height: 60px;
+        }
+
+        .letter-tile {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            width: 55px;
+            height: 55px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8rem;
+            font-weight: bold;
+            border-radius: 8px;
+            text-transform: uppercase;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 2px solid #334155;
+            background-color: #0f172a;
+            color: white;
+            font-size: 1.1rem;
+            outline: none;
+            flex: 1;
+        }
+
+        input:disabled,
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        button {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        .btn-success {
+            background-color: var(--accent-success);
+            color: white;
+        }
+
+        .btn-danger {
+            background-color: var(--accent-error);
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #334155;
+            color: var(--text-light);
+        }
+
+        .my-words-box {
+            margin-top: 15px;
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 8px;
+            min-height: 50px;
+            border: 1px solid #334155;
+        }
+
+        .word-token {
+            display: inline-block;
+            background: #334155;
+            padding: 4px 10px;
+            border-radius: 15px;
+            margin: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+        }
+
+        .leaderboard-table th,
+        .leaderboard-table td {
+            text-align: left;
+            padding: 8px 10px;
+            border-bottom: 1px solid #334155;
+        }
+
+        .chat-box {
+            height: 180px;
+            overflow-y: auto;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }
+
+        .chat-row {
+            margin-bottom: 6px;
+            word-wrap: break-word;
+        }
+
+        .chat-name {
+            color: var(--accent);
+            font-weight: bold;
+            margin-right: 4px;
+        }
+
+        #notification-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(30,41,59,0.95);
+            border: 2px solid var(--accent);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        #auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .auth-modal {
+            background: var(--panel-bg);
+            padding: 35px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .game-section {
+            display: none;
+        }
+
+        .tq-q-box {
+            max-height: 180px;
+            overflow-y: auto;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+
+        #inline-results-panel {
+            display: none;
+            background: #0f172a;
+            border: 1px solid #334155;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .breakdown-list {
+            max-height: 180px;
+            overflow-y: auto;
+            margin: 10px 0;
+            padding-right: 5px;
+        }
+
+        .breakdown-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 8px;
+            border-bottom: 1px solid #1e293b;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .host-controls {
+            background: rgba(255,255,255,0.03);
+            border: 1px dashed #334155;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
     </style>
 </head>
-<style>
-    button { padding: 12px 24px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 1rem; }
-    .btn-primary { background-color: var(--accent); color: white; }
-    .btn-success { background-color: var(--accent-success); color: white; }
-    .btn-danger { background-color: var(--accent-error); color: white; }
-    .btn-secondary { background-color: #334155; color: var(--text-light); }
-    .my-words-box { margin-top: 15px; background: #0f172a; padding: 12px; border-radius: 8px; min-height: 50px; border: 1px solid #334155; }
-    .word-token { display: inline-block; background: #334155; padding: 4px 10px; border-radius: 15px; margin: 4px; font-size: 0.9rem; font-weight: 600; text-transform: uppercase; }
-    .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
-    .leaderboard-table th, .leaderboard-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #334155; }
-    .chat-box { height: 180px; overflow-y: auto; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 10px; font-size: 0.95rem; }
-    .chat-row { margin-bottom: 6px; word-wrap: break-word; }
-    .chat-name { color: var(--accent); font-weight: bold; margin-right: 4px; }
-    #notification-toast { position: fixed; bottom: 20px; right: 20px; background: rgba(30,41,59,0.95); border: 2px solid var(--accent); color: white; padding: 16px 24px; border-radius: 8px; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s ease-in-out; }
-    #auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-main); display: flex; justify-content: center; align-items: center; z-index: 100; }
-    .auth-modal { background: var(--panel-bg); padding: 35px; border-radius: 12px; width: 100%; max-width: 450px; }
-    .game-section { display: none; }
-    .tq-q-box { max-height: 180px; overflow-y: auto; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px; margin-bottom: 15px; }
-    #inline-results-panel { display: none; background: #0f172a; border: 1px solid #334155; padding: 20px; border-radius: 8px; margin: 15px 0; }
-    .breakdown-list { max-height: 180px; overflow-y: auto; margin: 10px 0; padding-right: 5px; }
-    .breakdown-row { display: flex; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid #1e293b; text-transform: uppercase; font-weight: bold; }
-    .host-controls { background: rgba(255,255,255,0.03); border: 1px dashed #334155; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none; }
-</style>
+
 <body>
+
     <div id="auth-overlay">
         <div class="auth-modal">
-            <h2 style="margin-bottom:20px;">Join Game Lounge</h2>
-            <div class="control-group" style="flex-direction: column;">
-                <input type="text" id="username-input" placeholder="Screen name..." maxlength="15">
-                <input type="text" id="room-input" placeholder="Room Code (Empty for Default)">
-                <button class="btn-primary" onclick="connectToLobby()">Enter Lounge</button>
+
+            <h2 style="margin-bottom:20px;">
+                Join Game Lounge
+            </h2>
+
+            <div
+                class="control-group"
+                style="flex-direction: column;"
+            >
+                <input
+                    type="text"
+                    id="username-input"
+                    placeholder="Screen name..."
+                    maxlength="15"
+                >
+
+                <input
+                    type="text"
+                    id="room-input"
+                    placeholder="Room Code (Empty for Default)"
+                >
+
+                <button
+                    class="btn-primary"
+                    id="enter-lounge-btn"
+                >
+                    Enter Lounge
+                </button>
             </div>
+
         </div>
     </div>
-    <div id="notification-toast">Word Saved!</div>
+
+    <div id="notification-toast">
+        Word Saved!
+    </div>
+
     <div class="app-container">
+
+        <!-- =====================================================
+             MAIN GAME PANEL
+             ===================================================== -->
+
         <div class="panel main-arena">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <h1 id="game-title">Select Room Game</h1>
-                <div id="host-game-switcher" style="display:none;">
-                    <select id="game-select-dropdown" onchange="switchGameMode(this.value)" style="padding:8px; background:#0f172a; color:white; border:2px solid #334155; border-radius:6px; font-weight:bold;">
-                        <option value="unselected">-- Select Game Mode --</option>
-                        <option value="anagram">Anagrams Game</option>
-                        <option value="twenty_questions">20 Questions Game</option>
+
+            <div
+                style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    margin-bottom:12px;
+                "
+            >
+
+                <h1 id="game-title">
+                    Select Room Game
+                </h1>
+
+                <div
+                    id="host-game-switcher"
+                    style="display:none;"
+                >
+
+                    <select
+                        id="game-select-dropdown"
+                        style="
+                            padding:8px;
+                            background:#0f172a;
+                            color:white;
+                            border:2px solid #334155;
+                            border-radius:6px;
+                            font-weight:bold;
+                        "
+                    >
+                        <option value="unselected">
+                            -- Select Game Mode --
+                        </option>
+
+                        <option value="anagram">
+                            Anagrams Game
+                        </option>
+
+                        <option value="twenty_questions">
+                            20 Questions Game
+                        </option>
                     </select>
+
                 </div>
+
             </div>
-            <span class="room-tag" id="room-display">Room: lounge</span>
-            
-            <div id="panel-unselected" class="game-section" style="display:block; padding:30px 10px; text-align:center;">
-                <h3 style="color:var(--accent-warn);">Lounge Initialization Phase</h3>
-                <p style="color:var(--text-muted); margin-top:8px;" id="lounge-wait-text">Waiting for host...</p>
+
+            <span
+                class="room-tag"
+                id="room-display"
+            >
+                Room: lounge
+            </span>
+
+
+            <!-- =================================================
+                 UNSELECTED
+                 ================================================= -->
+
+            <div
+                id="panel-unselected"
+                class="game-section"
+                style="
+                    display:block;
+                    padding:30px 10px;
+                    text-align:center;
+                "
+            >
+
+                <h3 style="color:var(--accent-warn);">
+                    Lounge Initialization Phase
+                </h3>
+
+                <p
+                    style="
+                        color:var(--text-muted);
+                        margin-top:8px;
+                    "
+                    id="lounge-wait-text"
+                >
+                    Waiting for host...
+                </p>
+
             </div>
-            
-            <div id="panel-anagram" class="game-section">
-                <div class="timer-banner" id="timer-display">00:60</div>
-                <div id="countdown-flash-block" class="countdown-flash-banner">3</div>
-                <div class="status-msg" id="lock-status-msg">WAITING</div>
+
+
+            <!-- =================================================
+                 ANAGRAM GAME
+                 ================================================= -->
+
+            <div
+                id="panel-anagram"
+                class="game-section"
+            >
+
+                <div
+                    class="timer-banner"
+                    id="timer-display"
+                >
+                    00:60
+                </div>
+
+                <div
+                    id="countdown-flash-block"
+                    class="countdown-flash-banner"
+                >
+                    3
+                </div>
+
+                <div
+                    class="status-msg"
+                    id="lock-status-msg"
+                >
+                    WAITING
+                </div>
+
+
+                <!-- ROUND RESULTS -->
 
                 <div id="inline-results-panel">
-                    <h3 id="breakdown-title" style="color:var(--accent-warn); margin-bottom:5px;">Round Finished</h3>
-                    <p style="font-size:0.85rem; color:var(--text-muted);">Base word: <span id="reveal-root-word" style="color:white; font-weight:bold; text-transform:uppercase;"></span></p>
-                    <div class="breakdown-list" id="breakdown-list-container"></div>
+
+                    <h3
+                        id="breakdown-title"
+                        style="
+                            color:var(--accent-warn);
+                            margin-bottom:5px;
+                        "
+                    >
+                        Round Finished
+                    </h3>
+
+                    <p
+                        style="
+                            font-size:0.85rem;
+                            color:var(--text-muted);
+                        "
+                    >
+                        Base word:
+
+                        <span
+                            id="reveal-root-word"
+                            style="
+                                color:white;
+                                font-weight:bold;
+                                text-transform:uppercase;
+                            "
+                        ></span>
+                    </p>
+
+                    <div
+                        class="breakdown-list"
+                        id="breakdown-list-container"
+                    ></div>
+
                 </div>
 
-                <div class="host-controls" id="host-panel">
-                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">👑 HOST DASHBOARD</p>
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <button class="btn-secondary" style="padding:8px 16px;" onclick="controlTimer('pause')">⏸ Pause</button>
-                        <input type="number" id="limit-input" value="60" style="width:80px; padding:6px;" min="10">
-                        <button class="btn-secondary" style="padding:8px 16px;" onclick="updateLimit()">Set Limit</button>
-                        <button class="btn-danger" style="padding:8px 16px;" onclick="controlTimer('skip')">⏭ Skip</button>
+
+                <!-- HOST CONTROLS -->
+
+                <div
+                    class="host-controls"
+                    id="host-panel"
+                >
+
+                    <p
+                        style="
+                            font-size:0.85rem;
+                            color:var(--text-muted);
+                            margin-bottom:10px;
+                        "
+                    >
+                        👑 HOST DASHBOARD
+                    </p>
+
+                    <div
+                        style="
+                            display:flex;
+                            gap:10px;
+                            align-items:center;
+                        "
+                    >
+
+                        <button
+                            class="btn-secondary"
+                            style="padding:8px 16px;"
+                            id="pause-btn"
+                        >
+                            ⏸ Pause
+                        </button>
+
+                        <input
+                            type="number"
+                            id="limit-input"
+                            value="60"
+                            style="width:80px; padding:6px;"
+                            min="10"
+                        >
+
+                        <button
+                            class="btn-secondary"
+                            style="padding:8px 16px;"
+                            id="limit-btn"
+                        >
+                            Set Limit
+                        </button>
+
+                        <button
+                            class="btn-danger"
+                            style="padding:8px 16px;"
+                            id="skip-btn"
+                        >
+                            ⏭ Skip
+                        </button>
+
                     </div>
+
                 </div>
 
-                <div class="letter-tray" id="letter-tray"></div>
-                <form onsubmit="submitWordLocal(event)"><div class="control-group">
-                    <input type="text" id="guess-input" placeholder="Type anagram & press Enter..." autocomplete="off" disabled>
-                    <button type="submit" id="guess-submit-btn" class="btn-primary" disabled>Add Word</button>
-                </div></form>
-                <h3>Your Submissions This Round:</h3>
-                <div class="my-words-box" id="local-words-box" style="margin-bottom:15px; min-height:50px;"></div>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn-secondary" id="shuffle-btn" onclick="shuffleTray()">🔀 Shuffle</button>
-                    <button class="btn-success" id="ready-toggle-btn" onclick="toggleReadyState()">✓ Ready for Next Round</button>
-                </div>
-            </div>
 
-            <div id="panel-tq" class="game-section">
-                <div class="timer-banner" id="tq-status-banner">Status: Waiting</div>
-                <p style="margin-bottom:8px;">Secret Word Tracker: <strong id="tq-word-reveal" style="color:var(--accent-warn); font-family:monospace; letter-spacing:2px;"></strong></p>
-                <div id="tq-controls-area" style="margin-bottom:12px;"></div>
-                <h3>Questions (<span id="tq-count-num">0</span>/20):</h3>
-                <div class="tq-q-box" id="tq-questions-list"></div>
-                <div id="tq-ask-area" style="display:none;">
+                <!-- LETTERS -->
+
+                <div
+                    class="letter-tray"
+                    id="letter-tray"
+                ></div>
+
+
+                <!-- WORD INPUT -->
+
+                <form id="guess-form">
+
                     <div class="control-group">
-                        <input type="text" id="tq-question-input" placeholder="Ask a yes/no question...">
-                        <button class="btn-primary" onclick="tqSubmitQuestion()">Ask Question</button>
+
+                        <input
+                            type="text"
+                            id="guess-input"
+                            placeholder="Type anagram & press Enter..."
+                            autocomplete="off"
+                            disabled
+                        >
+
+                        <button
+                            type="submit"
+                            id="guess-submit-btn"
+                            class="btn-primary"
+                            disabled
+                        >
+                            Add Word
+                        </button>
+
                     </div>
+
+                </form>
+
+
+                <h3>
+                    Your Submissions This Round:
+                </h3>
+
+                <div
+                    class="my-words-box"
+                    id="local-words-box"
+                    style="
+                        margin-bottom:15px;
+                        min-height:50px;
+                    "
+                ></div>
+
+
+                <!-- ROUND CONTROLS -->
+
+                <div
+                    style="
+                        display:flex;
+                        gap:10px;
+                    "
+                >
+
+                    <button
+                        class="btn-secondary"
+                        id="shuffle-btn"
+                    >
+                        🔀 Shuffle
+                    </button>
+
+                    <button
+                        class="btn-success"
+                        id="ready-toggle-btn"
+                    >
+                        ✓ Ready for Next Round
+                    </button>
+
                 </div>
+
             </div>
+
+
+            <!-- =================================================
+                 20 QUESTIONS
+                 ================================================= -->
+
+            <div
+                id="panel-tq"
+                class="game-section"
+            >
+
+                <div
+                    class="timer-banner"
+                    id="tq-status-banner"
+                >
+                    Status: Waiting
+                </div>
+
+                <p style="margin-bottom:8px;">
+
+                    Secret Word Tracker:
+
+                    <strong
+                        id="tq-word-reveal"
+                        style="
+                            color:var(--accent-warn);
+                            font-family:monospace;
+                            letter-spacing:2px;
+                        "
+                    ></strong>
+
+                </p>
+
+                <div
+                    id="tq-controls-area"
+                    style="margin-bottom:12px;"
+                ></div>
+
+                <h3>
+                    Questions
+                    (<span id="tq-count-num">0</span>/20):
+                </h3>
+
+                <div
+                    class="tq-q-box"
+                    id="tq-questions-list"
+                ></div>
+
+                <div
+                    id="tq-ask-area"
+                    style="display:none;"
+                >
+
+                    <div class="control-group">
+
+                        <input
+                            type="text"
+                            id="tq-question-input"
+                            placeholder="Ask a yes/no question..."
+                        >
+
+                        <button
+                            class="btn-primary"
+                            id="tq-ask-btn"
+                        >
+                            Ask Question
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
         </div>
+
+
+        <!-- =====================================================
+             SIDEBAR
+             ===================================================== -->
+
         <div class="sidebar-column">
+
+            <!-- LEADERBOARD -->
+
             <div class="panel score-board">
-                <h3 style="margin-bottom:10px;">Standings</h3>
-                <table class="leaderboard-table"><thead><tr><th>Player</th><th>Status</th><th>Score</th></tr></thead><tbody id="leaderboard-body"></tbody></table>
+
+                <h3 style="margin-bottom:10px;">
+                    Standings
+                </h3>
+
+                <table class="leaderboard-table">
+
+                    <thead>
+
+                        <tr>
+                            <th>Player</th>
+                            <th>Status</th>
+                            <th>Score</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="leaderboard-body"></tbody>
+
+                </table>
+
             </div>
+
+
+            <!-- CHAT -->
+
             <div class="panel chat-module">
-                <h3 style="margin-bottom:10px;">Room Chat</h3>
-                <div class="chat-box" id="chat-stream-box"></div>
-                <form onsubmit="sendChatMessage(event)"><div class="control-group" style="margin-bottom:0; gap:6px;">
-                    <input type="text" id="chat-input" placeholder="Type chat..." autocomplete="off">
-                    <button type="submit" class="btn-primary" style="padding:8px 14px;">Send</button>
-                </div></form>
+
+                <h3 style="margin-bottom:10px;">
+                    Room Chat
+                </h3>
+
+                <div
+                    class="chat-box"
+                    id="chat-stream-box"
+                ></div>
+
+                <form id="chat-form">
+
+                    <div
+                        class="control-group"
+                        style="
+                            margin-bottom:0;
+                            gap:6px;
+                        "
+                    >
+
+                        <input
+                            type="text"
+                            id="chat-input"
+                            placeholder="Type chat..."
+                            autocomplete="off"
+                        >
+
+                        <button
+                            type="submit"
+                            class="btn-primary"
+                            style="padding:8px 14px;"
+                        >
+                            Send
+                        </button>
+
+                    </div>
+
+                </form>
+
             </div>
+
         </div>
+
     </div>
-        <script>
-        let currentRoom = "lounge", myPid = null, amHost = false, localChatCounter = 0;
-        let localLetters = [], localRoundWords = [], currentRoundId = -1, serverLettersSig = "";
+
+
+    <!-- =========================================================
+         JAVASCRIPT
+         ========================================================= -->
+
+    <script>
+
+        let currentRoom = "lounge";
+        let myPid = null;
+        let amHost = false;
+        let localChatCounter = 0;
+
+        let localLetters = [];
+        let localRoundWords = [];
+
+        let currentRoundId = -1;
+        let serverLettersSig = "";
+
         let cachedTqStatus = "";
 
+        let syncIntervalStarted = false;
+
+
+        // =====================================================
+        // JOIN GAME
+        // =====================================================
+
         async function connectToLobby() {
-            const name = document.getElementById('username-input').value.trim();
-            const roomInput = document.getElementById('room-input').value.trim();
-            if(!name) return;
-            currentRoom = roomInput || "lounge";
-            document.getElementById('room-display').innerText = `Room: ${currentRoom}`;
-            const res = await fetch('/api/join', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, room: currentRoom, pid: myPid }) });
-            const data = await res.json();
-            myPid = data.pid; handleBroadcast(data.state, data.is_host);
-            document.getElementById('auth-overlay').style.display = 'none';
-            setInterval(syncLoop, 1000);
+
+            const name =
+                document
+                    .getElementById('username-input')
+                    .value
+                    .trim();
+
+            const roomInput =
+                document
+                    .getElementById('room-input')
+                    .value
+                    .trim();
+
+            if (!name) {
+                return;
+            }
+
+            currentRoom =
+                roomInput || "lounge";
+
+            document
+                .getElementById('room-display')
+                .innerText =
+                    `Room: ${currentRoom}`;
+
+            const res =
+                await fetch(
+                    '/api/join',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+                        body: JSON.stringify({
+                            name,
+                            room: currentRoom,
+                            pid: myPid
+                        })
+                    }
+                );
+
+            const data =
+                await res.json();
+
+            myPid = data.pid;
+
+            handleBroadcast(
+                data.state,
+                data.is_host
+            );
+
+            document
+                .getElementById('auth-overlay')
+                .style.display = 'none';
+
+            if (!syncIntervalStarted) {
+
+                syncIntervalStarted = true;
+
+                setInterval(
+                    syncLoop,
+                    1000
+                );
+            }
         }
+
+
+        // =====================================================
+        // SYNC LOOP
+        // =====================================================
 
         async function syncLoop() {
+
             try {
-                // FIXED: Explicitly send localRoundWords down the HTTP stream on every sync cycle
-                const res = await fetch('/api/sync', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, buffered_words: localRoundWords, last_chat_id: localChatCounter }) });
-                if (res.status === 404) { window.location.reload(); return; }
-                const data = await res.json();
-                handleBroadcast(data.state, data.is_host);
-                if (data.breakdown) showInlineBreakdown(data.breakdown);
-            } catch(e) {}
+
+                const res =
+                    await fetch(
+                        '/api/sync',
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type':
+                                    'application/json'
+                            },
+                            body: JSON.stringify({
+                                room: currentRoom,
+                                pid: myPid,
+                                buffered_words:
+                                    localRoundWords,
+                                last_chat_id:
+                                    localChatCounter
+                            })
+                        }
+                    );
+
+                if (res.status === 404) {
+
+                    window.location.reload();
+
+                    return;
+                }
+
+                const data =
+                    await res.json();
+
+                handleBroadcast(
+                    data.state,
+                    data.is_host
+                );
+
+                if (data.breakdown) {
+
+                    showInlineBreakdown(
+                        data.breakdown
+                    );
+                }
+
+            } catch (e) {
+                // Ignore temporary connection errors
+            }
         }
 
-        function handleBroadcast(state, isHost) {
+
+        // =====================================================
+        // MAIN BROADCAST HANDLER
+        // =====================================================
+
+        function handleBroadcast(
+            state,
+            isHost
+        ) {
+
             amHost = isHost;
-            document.getElementById('host-panel').style.display = (amHost && state.game_type === 'anagram') ? 'block' : 'none';
-            if (!state.game_locked && amHost) {
-                document.getElementById('host-game-switcher').style.display = 'block';
+
+            document
+                .getElementById('host-panel')
+                .style.display =
+                    (
+                        amHost
+                        && state.game_type === 'anagram'
+                    )
+                        ? 'block'
+                        : 'none';
+
+
+            if (
+                !state.game_locked
+                && amHost
+            ) {
+
+                document
+                    .getElementById(
+                        'host-game-switcher'
+                    )
+                    .style.display = 'block';
+
             } else {
-                document.getElementById('host-game-switcher').style.display = 'none';
+
+                document
+                    .getElementById(
+                        'host-game-switcher'
+                    )
+                    .style.display = 'none';
             }
-            
-            document.getElementById('panel-unselected').style.display = state.game_type === 'unselected' ? 'block' : 'none';
-            document.getElementById('panel-anagram').style.display = state.game_type === 'anagram' ? 'block' : 'none';
-            document.getElementById('panel-tq').style.display = state.game_type === 'twenty_questions' ? 'block' : 'none';
-            
-            if (state.game_type === 'unselected') {
-                document.getElementById('game-title').innerText = "Lounge Lobby";
-                document.getElementById('lounge-wait-text').innerText = amHost ? "👑 Pick locked game above." : "Waiting for host...";
+
+
+            document
+                .getElementById(
+                    'panel-unselected'
+                )
+                .style.display =
+                    state.game_type === 'unselected'
+                        ? 'block'
+                        : 'none';
+
+            document
+                .getElementById(
+                    'panel-anagram'
+                )
+                .style.display =
+                    state.game_type === 'anagram'
+                        ? 'block'
+                        : 'none';
+
+            document
+                .getElementById(
+                    'panel-tq'
+                )
+                .style.display =
+                    state.game_type === 'twenty_questions'
+                        ? 'block'
+                        : 'none';
+
+
+            if (
+                state.game_type ===
+                'unselected'
+            ) {
+
+                document
+                    .getElementById(
+                        'game-title'
+                    )
+                    .innerText =
+                        "Lounge Lobby";
+
+                document
+                    .getElementById(
+                        'lounge-wait-text'
+                    )
+                    .innerText =
+                        amHost
+                            ? "👑 Pick locked game above."
+                            : "Waiting for host...";
             }
-            appendIncrementalChats(state.new_chats);
-            
-            if (state.game_type === 'anagram') {
-                document.getElementById('game-title').innerText = "Anagram Arena";
-                handleAnagramBroadcast(state);
-            } else if (state.game_type === 'twenty_questions') {
-                document.getElementById('game-title').innerText = "20 Questions";
-                handleTqBroadcast(state);
+
+
+            appendIncrementalChats(
+                state.new_chats
+            );
+
+
+            if (
+                state.game_type ===
+                'anagram'
+            ) {
+
+                document
+                    .getElementById(
+                        'game-title'
+                    )
+                    .innerText =
+                        "Anagram Arena";
+
+                handleAnagramBroadcast(
+                    state
+                );
+
+            } else if (
+                state.game_type ===
+                'twenty_questions'
+            ) {
+
+                document
+                    .getElementById(
+                        'game-title'
+                    )
+                    .innerText =
+                        "20 Questions";
+
+                handleTqBroadcast(
+                    state
+                );
             }
-            
-            const tbody = document.getElementById('leaderboard-body'); tbody.innerHTML = '';
-            state.leaderboard.forEach(p => {
-                const tr = document.createElement('tr');
-                const readyLabel = p.ready ? `<span style="color:var(--accent-success); font-weight:bold;">READY</span>` : `<span style="color:var(--text-muted);">WAITING</span>`;
-                tr.innerHTML = `<td><strong>${p.name}${p.is_host ? ' 👑':''}</strong></td><td>${state.game_type === 'anagram' ? readyLabel : '-'}</td><td>${p.score} pts</td>`;
-                tbody.appendChild(tr);
-            });
-        }
-    </script>
-    <script>
-        function handleAnagramBroadcast(state) {
-            const flashBlock = document.getElementById('countdown-flash-block');
-            const txtInput = document.getElementById('guess-input'), btnSubmit = document.getElementById('guess-submit-btn'), statusLabel = document.getElementById('lock-status-msg');
-            const readyBtn = document.getElementById('ready-toggle-btn'), shuffleBtn = document.getElementById('shuffle-btn');
-            
-            if (state.round_id !== currentRoundId) {
-                currentRoundId = state.round_id; localLetters = [...state.letters]; renderLetters(localLetters);
-                localRoundWords = []; renderLocalWords(); document.getElementById('inline-results-panel').style.display = 'none';
-            }
-            let comingSig = state.letters.join("");
-            if (comingSig !== serverLettersSig) {
-                serverLettersSig = comingSig; localLetters = [...state.letters]; renderLetters(localLetters);
-            }
-            updateTimerDisplay(state.time_left);
-            
-            if (state.countdown_active) {
-                flashBlock.style.display = 'block'; flashBlock.innerText = state.time_left;
-                txtInput.disabled = true; btnSubmit.disabled = true; readyBtn.disabled = true; shuffleBtn.disabled = true;
-                statusLabel.innerText = "GET READY!"; statusLabel.style.color = "var(--accent-error)";
-            } else {
-                flashBlock.style.display = 'none';
-                if (state.timer_active) {
-                    txtInput.disabled = false; btnSubmit.disabled = false; readyBtn.disabled = true; shuffleBtn.disabled = false;
-                    statusLabel.innerText = "ROUND RUNNING - ENTRY ACTIVE"; statusLabel.style.color = "var(--accent-success)";
-                } else {
-                    txtInput.disabled = true; btnSubmit.disabled = true; readyBtn.disabled = false; shuffleBtn.disabled = true;
-                    statusLabel.innerText = "ROUND FINISHED - READY UP"; statusLabel.style.color = "var(--accent-warn)";
+
+
+            // =================================================
+            // LEADERBOARD
+            // Server now sends this sorted by score.
+            // =================================================
+
+            const tbody =
+                document
+                    .getElementById(
+                        'leaderboard-body'
+                    );
+
+            tbody.innerHTML = '';
+
+            state.leaderboard.forEach(
+                p => {
+
+                    const tr =
+                        document.createElement(
+                            'tr'
+                        );
+
+                    const readyLabel =
+                        p.ready
+
+                            ? `<span style="
+                                color:var(--accent-success);
+                                font-weight:bold;
+                              ">
+                                READY
+                              </span>`
+
+                            : `<span style="
+                                color:var(--text-muted);
+                              ">
+                                WAITING
+                              </span>`;
+
+                    tr.innerHTML =
+                        `
+                        <td>
+                            <strong>
+                                ${escapeHtml(p.name)}
+                                ${p.is_host ? ' 👑' : ''}
+                            </strong>
+                        </td>
+
+                        <td>
+                            ${
+                                state.game_type === 'anagram'
+                                    ? readyLabel
+                                    : '-'
+                            }
+                        </td>
+
+                        <td>
+                            ${p.score} pts
+                        </td>
+                        `;
+
+                    tbody.appendChild(
+                        tr
+                    );
                 }
+            );
+        }
+
+
+        // =====================================================
+        // ANAGRAM BROADCAST
+        // =====================================================
+
+        function handleAnagramBroadcast(
+            state
+        ) {
+
+            const flashBlock =
+                document.getElementById(
+                    'countdown-flash-block'
+                );
+
+            const txtInput =
+                document.getElementById(
+                    'guess-input'
+                );
+
+            const btnSubmit =
+                document.getElementById(
+                    'guess-submit-btn'
+                );
+
+            const statusLabel =
+                document.getElementById(
+                    'lock-status-msg'
+                );
+
+            const readyBtn =
+                document.getElementById(
+                    'ready-toggle-btn'
+                );
+
+            const shuffleBtn =
+                document.getElementById(
+                    'shuffle-btn'
+                );
+
+            const resultsPanel =
+                document.getElementById(
+                    'inline-results-panel'
+                );
+
+
+            // =================================================
+            // NEW ROUND
+            // =================================================
+
+            if (
+                state.round_id !==
+                currentRoundId
+            ) {
+
+                currentRoundId =
+                    state.round_id;
+
+                localLetters =
+                    [...state.letters];
+
+                renderLetters(
+                    localLetters
+                );
+
+                localRoundWords = [];
+
+                renderLocalWords();
+
+                resultsPanel.style.display =
+                    'none';
+
+                resultsPanel.innerHTML = `
+                    <h3
+                        id="breakdown-title"
+                        style="
+                            color:var(--accent-warn);
+                            margin-bottom:5px;
+                        "
+                    >
+                        Round Finished
+                    </h3>
+
+                    <p
+                        style="
+                            font-size:0.85rem;
+                            color:var(--text-muted);
+                        "
+                    >
+                        Base word:
+
+                        <span
+                            id="reveal-root-word"
+                            style="
+                                color:white;
+                                font-weight:bold;
+                                text-transform:uppercase;
+                            "
+                        ></span>
+                    </p>
+
+                    <div
+                        class="breakdown-list"
+                        id="breakdown-list-container"
+                    ></div>
+                `;
+            }
+
+
+            // =================================================
+            // COUNTDOWN
+            // =================================================
+
+            if (
+                state.countdown_active
+            ) {
+
+                // IMPORTANT:
+                // Clear all old round information immediately
+                // when countdown begins.
+
+                localRoundWords = [];
+
+                renderLocalWords();
+
+                resultsPanel.style.display =
+                    'none';
+
+                const breakdownContainer =
+                    document.getElementById(
+                        'breakdown-list-container'
+                    );
+
+                if (
+                    breakdownContainer
+                ) {
+
+                    breakdownContainer.innerHTML =
+                        '';
+                }
+
+                const revealWord =
+                    document.getElementById(
+                        'reveal-root-word'
+                    );
+
+                if (revealWord) {
+                    revealWord.innerText =
+                        '';
+                }
+
+
+                flashBlock.style.display =
+                    'block';
+
+                flashBlock.innerText =
+                    state.time_left;
+
+                txtInput.value = '';
+
+                txtInput.disabled = true;
+
+                btnSubmit.disabled = true;
+
+                readyBtn.disabled = true;
+
+                shuffleBtn.disabled = true;
+
+                statusLabel.innerText =
+                    "GET READY!";
+
+                statusLabel.style.color =
+                    "var(--accent-error)";
+
+                updateTimerDisplay(
+                    state.time_left
+                );
+
+                return;
+            }
+
+
+            // =================================================
+            // LETTERS
+            // =================================================
+
+            let comingSig =
+                state.letters.join("");
+
+            if (
+                comingSig !==
+                serverLettersSig
+            ) {
+
+                serverLettersSig =
+                    comingSig;
+
+                localLetters =
+                    [...state.letters];
+
+                renderLetters(
+                    localLetters
+                );
+            }
+
+
+            updateTimerDisplay(
+                state.time_left
+            );
+
+
+            // =================================================
+            // ACTIVE / FINISHED
+            // =================================================
+
+            flashBlock.style.display =
+                'none';
+
+            if (
+                state.timer_active
+            ) {
+
+                txtInput.disabled = false;
+
+                btnSubmit.disabled = false;
+
+                readyBtn.disabled = true;
+
+                shuffleBtn.disabled = false;
+
+                statusLabel.innerText =
+                    "ROUND RUNNING - ENTRY ACTIVE";
+
+                statusLabel.style.color =
+                    "var(--accent-success)";
+
+            } else {
+
+                txtInput.disabled = true;
+
+                btnSubmit.disabled = true;
+
+                readyBtn.disabled = false;
+
+                shuffleBtn.disabled = true;
+
+                statusLabel.innerText =
+                    "ROUND FINISHED - READY UP";
+
+                statusLabel.style.color =
+                    "var(--accent-warn)";
             }
         }
+
+
+        // =====================================================
+        // SUBMIT ANAGRAM
+        // =====================================================
 
         function submitWordLocal(e) {
+
             e.preventDefault();
-            const input = document.getElementById('guess-input');
-            const guess = input.value.trim().toLowerCase().replace(/[^a-z]/g, "");
+
+            const input =
+                document.getElementById(
+                    'guess-input'
+                );
+
+            const guess =
+                input.value
+                    .trim()
+                    .toLowerCase()
+                    .replace(
+                        /[^a-z]/g,
+                        ""
+                    );
+
             input.value = '';
-            if (!guess) return;
-            if (guess.length < 3 || guess.length > 6) { launchToast("Must be 3-6 letters!"); return; }
-            if (localRoundWords.includes(guess)) { launchToast("Word already on board!"); return; }
-            let trayPool = [...localLetters];
-            for (let char of guess) {
-                let idx = trayPool.indexOf(char);
-                if (idx === -1) { launchToast(`Letter "${char.toUpperCase()}" not in tray!`); return; }
-                trayPool.splice(idx, 1);
+
+            if (!guess) {
+                return;
             }
-            localRoundWords.push(guess); renderLocalWords(); input.focus();
+
+            if (
+                guess.length < 3
+                || guess.length > 6
+            ) {
+
+                launchToast(
+                    "Must be 3-6 letters!"
+                );
+
+                return;
+            }
+
+            if (
+                localRoundWords.includes(
+                    guess
+                )
+            ) {
+
+                launchToast(
+                    "Word already on board!"
+                );
+
+                return;
+            }
+
+            let trayPool =
+                [...localLetters];
+
+            for (
+                let char of guess
+            ) {
+
+                let idx =
+                    trayPool.indexOf(
+                        char
+                    );
+
+                if (idx === -1) {
+
+                    launchToast(
+                        `Letter "${char.toUpperCase()}" not in tray!`
+                    );
+
+                    return;
+                }
+
+                trayPool.splice(
+                    idx,
+                    1
+                );
+            }
+
+            localRoundWords.push(
+                guess
+            );
+
+            renderLocalWords();
+
+            input.focus();
         }
+
+
+        // =====================================================
+        // RENDER LOCAL WORDS
+        // =====================================================
 
         function renderLocalWords() {
-            const box = document.getElementById('local-words-box'); box.innerHTML = '';
-            localRoundWords.forEach(word => {
-                const span = document.createElement('span'); span.className = 'word-token'; span.innerText = word; box.appendChild(span);
-            });
+
+            const box =
+                document.getElementById(
+                    'local-words-box'
+                );
+
+            box.innerHTML = '';
+
+            localRoundWords.forEach(
+                word => {
+
+                    const span =
+                        document.createElement(
+                            'span'
+                        );
+
+                    span.className =
+                        'word-token';
+
+                    span.innerText =
+                        word;
+
+                    box.appendChild(
+                        span
+                    );
+                }
+            );
         }
 
-        function showInlineBreakdown(data) {
-            document.getElementById('reveal-root-word').innerText = data.round_word;
-            const container = document.getElementById('breakdown-list-container'); container.innerHTML = '';
-            if (!data.breakdown || data.breakdown.length === 0) {
-                container.innerHTML = `<p style="text-align:center; padding:10px; color:var(--text-muted);">No words found.</p>`;
+
+        // =====================================================
+        // ROUND BREAKDOWN
+        // =====================================================
+
+        function showInlineBreakdown(
+            data
+        ) {
+
+            const panel =
+                document.getElementById(
+                    'inline-results-panel'
+                );
+
+            const revealWord =
+                document.getElementById(
+                    'reveal-root-word'
+                );
+
+            const container =
+                document.getElementById(
+                    'breakdown-list-container'
+                );
+
+            revealWord.innerText =
+                data.round_word;
+
+            container.innerHTML =
+                '';
+
+            if (
+                !data.breakdown
+                || data.breakdown.length === 0
+            ) {
+
+                container.innerHTML =
+                    `
+                    <p
+                        style="
+                            text-align:center;
+                            padding:10px;
+                            color:var(--text-muted);
+                        "
+                    >
+                        No words found.
+                    </p>
+                    `;
+
             } else {
-                data.breakdown.forEach(item => {
-                    const row = document.createElement('div'); row.className = 'breakdown-row';
-                    const color = item.valid ? 'var(--accent-success)' : 'var(--accent-error)';
-                    const label = item.valid ? `+${item.points} PTS` : 'INVALID';
-                    row.innerHTML = `<span>${item.word}</span><span style="color:${color};">${label}</span>`; container.appendChild(row);
-                });
+
+                data.breakdown.forEach(
+                    item => {
+
+                        const row =
+                            document.createElement(
+                                'div'
+                            );
+
+                        row.className =
+                            'breakdown-row';
+
+                        const color =
+                            item.valid
+                                ? 'var(--accent-success)'
+                                : 'var(--accent-error)';
+
+                        const label =
+                            item.valid
+                                ? `+${item.points} PTS`
+                                : 'INVALID';
+
+                        row.innerHTML =
+                            `
+                            <span>
+                                ${escapeHtml(item.word)}
+                            </span>
+
+                            <span
+                                style="color:${color};"
+                            >
+                                ${label}
+                            </span>
+                            `;
+
+                        container.appendChild(
+                            row
+                        );
+                    }
+                );
             }
-            document.getElementById('inline-results-panel').style.display = 'block';
-        }
-    </script>
-    <script>
-        function handleTqBroadcast(state) {
-            document.getElementById('tq-word-reveal').innerText = state.tq_secret_word || '???';
-            document.getElementById('tq-count-num').innerText = state.tq_questions.length;
-            const controls = document.getElementById('tq-controls-area'), askArea = document.getElementById('tq-ask-area');
-            const banner = document.getElementById('tq-status-banner');
-            if (cachedTqStatus !== state.tq_status || (state.tq_status === 'waiting_word' && controls.children.length === 0)) {
-                cachedTqStatus = state.tq_status;
-                if (state.tq_status === 'waiting_thinker') {
-                    banner.innerText = "Status: Need a Thinker!"; controls.innerHTML = `<button class="btn-primary" onclick="tqActionReq('become_thinker')">Volunteer</button>`; askArea.style.display = 'none';
-                } else if (state.tq_status === 'waiting_word') {
-                    if (state.tq_thinker_pid === myPid) {
-                        banner.innerText = "Status: Enter word!"; controls.innerHTML = `<div class="control-group"><input type="text" id="tq-secret-input" placeholder="Word..."><button class="btn-success" onclick="tqSetWord()">Set</button></div>`;
-                    } else { banner.innerText = "Status: Setting word..."; controls.innerHTML = ''; }
-                    askArea.style.display = 'none';
-                } else if (state.tq_status === 'active') {
-                    banner.innerText = state.tq_thinker_pid === myPid ? "Status: Answer Questions!" : "Status: Guessing Active!"; controls.innerHTML = ''; askArea.style.display = state.tq_thinker_pid === myPid ? 'none' : 'block';
-                } else if (state.tq_status === 'won') {
-                    banner.innerText = "Status: Word Solved!"; controls.innerHTML = `<button class="btn-success" onclick="tqActionReq('become_thinker')">Next Round</button>`; askArea.style.display = 'none';
-                }
-            }
-            const qList = document.getElementById('tq-questions-list'); qList.innerHTML = '';
-            state.tq_questions.forEach(q => {
-                const div = document.createElement('div'); div.style.cssText = "margin-bottom:6px; padding:6px; background:#0f172a; border-radius:6px; border:1px solid #334155;";
-                let ansHtml = q.answer ? `<span style="color:var(--accent-success); font-weight:bold; text-transform:uppercase;">[${q.answer}]</span>` : `<span style="color:var(--accent-warn);">[PENDING]</span>`;
-                if (state.tq_thinker_pid === myPid && !q.answer) {
-                    ansHtml = `<button class="btn-success" style="padding:2px 8px; font-size:0.8rem; margin-right:4px;" onclick="tqAnswerQ(${q.id}, 'Yes')">Yes</button>
-                               <button class="btn-danger" style="padding:2px 8px; font-size:0.8rem; margin-right:4px;" onclick="tqAnswerQ(${q.id}, 'No')">No</button>
-                               <button class="btn-secondary" style="padding:2px 8px; font-size:0.8rem; margin-right:4px;" onclick="tqAnswerQ(${q.id}, 'Maybe')">Maybe</button>
-                               <button class="btn-primary" style="padding:2px 8px; font-size:0.8rem;" onclick="tqAnswerQ(${q.id}, 'Correct')">Correct!</button>`;
-                }
-                div.innerHTML = `<strong>${q.name}:</strong> ${escapeHtml(q.text)} &rarr; ${ansHtml}`; qList.appendChild(div);
-            });
+
+            panel.style.display =
+                'block';
         }
 
-        async function switchGameMode(gt) { const res = await fetch('/api/game_switch', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, game_type: gt }) }); handleBroadcast((await res.json()).state, amHost); }
-        async function tqActionReq(action) { const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action }) }); handleBroadcast((await res.json()).state, amHost); }
-        async function tqSetWord() { const w = document.getElementById('tq-secret-input').value; const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'set_word', word: w }) }); handleBroadcast((await res.json()).state, amHost); }
-        async function tqSubmitQuestion() { const t = document.getElementById('tq-question-input').value; document.getElementById('tq-question-input').value = ''; const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'ask_question', text: t }) }); handleBroadcast((await res.json()).state, amHost); }
-        async function tqAnswerQ(qid, answer) { const res = await fetch('/api/tq_action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'answer_question', qid, answer }) }); handleBroadcast((await res.json()).state, amHost); }
-        async function toggleReadyState() { const res = await fetch('/api/ready', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid }) }); handleBroadcast((await res.json()).state, amHost); }
-        async function controlTimer(action) { const res = await fetch('/api/control', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action }) }); handleBroadcast((await res.json()).state, amHost); }
-        async function updateLimit() { const val = document.getElementById('limit-input').value; const res = await fetch('/api/control', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, action: 'limit', limit: val }) }); launchToast(`Limit set to ${val}s!`); handleBroadcast((await res.json()).state, amHost); }
-        async function sendChatMessage(e) { e.preventDefault(); const input = document.getElementById('chat-input'), msg = input.value.trim(); if(!msg) return; input.value = ''; const res = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ room: currentRoom, pid: myPid, msg, last_chat_id: localChatCounter }) }); handleBroadcast((await res.json()).state, amHost); }
-        
-        function appendIncrementalChats(newChatsList) {
-            if (!newChatsList || !newChatsList.length) return; const box = document.getElementById('chat-stream-box');
-            newChatsList.forEach(c => { if (c.id > localChatCounter) { localChatCounter = c.id; const row = document.createElement('div'); row.className = 'chat-row'; row.innerHTML = `<span class="chat-name">${escapeHtml(c.name)}:</span><span>${escapeHtml(c.msg)}</span>`; box.appendChild(row); } });
-            box.scrollTop = box.scrollHeight;
+
+        // =====================================================
+        // 20 QUESTIONS
+        // =====================================================
+
+        function handleTqBroadcast(
+            state
+        ) {
+
+            document
+                .getElementById(
+                    'tq-word-reveal'
+                )
+                .innerText =
+                    state.tq_secret_word
+                    || '???';
+
+            document
+                .getElementById(
+                    'tq-count-num'
+                )
+                .innerText =
+                    state.tq_questions.length;
+
+            const controls =
+                document.getElementById(
+                    'tq-controls-area'
+                );
+
+            const askArea =
+                document.getElementById(
+                    'tq-ask-area'
+                );
+
+            const banner =
+                document.getElementById(
+                    'tq-status-banner'
+                );
+
+
+            if (
+                cachedTqStatus !==
+                    state.tq_status
+                ||
+                (
+                    state.tq_status ===
+                    'waiting_word'
+                    &&
+                    controls.children.length === 0
+                )
+            ) {
+
+                cachedTqStatus =
+                    state.tq_status;
+
+
+                // -------------------------------------------------
+                // WAITING FOR THINKER
+                // -------------------------------------------------
+
+                if (
+                    state.tq_status ===
+                    'waiting_thinker'
+                ) {
+
+                    banner.innerText =
+                        "Status: Need a Thinker!";
+
+                    controls.innerHTML =
+                        `
+                        <button
+                            class="btn-primary"
+                            id="tq-volunteer-btn"
+                        >
+                            Volunteer
+                        </button>
+                        `;
+
+                    askArea.style.display =
+                        'none';
+
+                }
+
+
+                // -------------------------------------------------
+                // WAITING FOR WORD
+                // -------------------------------------------------
+
+                else if (
+                    state.tq_status ===
+                    'waiting_word'
+                ) {
+
+                    if (
+                        state.tq_thinker_pid ===
+                        myPid
+                    ) {
+
+                        banner.innerText =
+                            "Status: Enter word!";
+
+                        controls.innerHTML =
+                            `
+                            <div class="control-group">
+
+                                <input
+                                    type="text"
+                                    id="tq-secret-input"
+                                    placeholder="Word..."
+                                >
+
+                                <button
+                                    class="btn-success"
+                                    id="tq-set-word-btn"
+                                >
+                                    Set
+                                </button>
+
+                            </div>
+                            `;
+
+                    } else {
+
+                        banner.innerText =
+                            "Status: Setting word...";
+
+                        controls.innerHTML =
+                            '';
+                    }
+
+                    askArea.style.display =
+                        'none';
+                }
+
+
+                // -------------------------------------------------
+                // ACTIVE
+                // -------------------------------------------------
+
+                else if (
+                    state.tq_status ===
+                    'active'
+                ) {
+
+                    banner.innerText =
+                        state.tq_thinker_pid === myPid
+                            ? "Status: Answer Questions!"
+                            : "Status: Guessing Active!";
+
+                    controls.innerHTML =
+                        '';
+
+                    askArea.style.display =
+                        state.tq_thinker_pid === myPid
+                            ? 'none'
+                            : 'block';
+                }
+
+
+                // -------------------------------------------------
+                // WON
+                // -------------------------------------------------
+
+                else if (
+                    state.tq_status ===
+                    'won'
+                ) {
+
+                    banner.innerText =
+                        "Status: Word Solved!";
+
+                    controls.innerHTML =
+                        `
+                        <button
+                            class="btn-success"
+                            id="tq-next-round-btn"
+                        >
+                            Next Round
+                        </button>
+                        `;
+
+                    askArea.style.display =
+                        'none';
+                }
+            }
+
+
+            // =================================================
+            // QUESTIONS
+            // =================================================
+
+            const qList =
+                document.getElementById(
+                    'tq-questions-list'
+                );
+
+            qList.innerHTML =
+                '';
+
+
+            state.tq_questions.forEach(
+                q => {
+
+                    const div =
+                        document.createElement(
+                            'div'
+                        );
+
+                    div.style.cssText =
+                        `
+                        margin-bottom:6px;
+                        padding:6px;
+                        background:#0f172a;
+                        border-radius:6px;
+                        border:1px solid #334155;
+                        `;
+
+
+                    // =================================================
+                    // ANSWER COLOURS
+                    // =================================================
+
+                    let ansHtml;
+
+                    if (!q.answer) {
+
+                        ansHtml =
+                            `
+                            <span
+                                style="
+                                    color:var(--accent-warn);
+                                    font-weight:bold;
+                                "
+                            >
+                                [PENDING]
+                            </span>
+                            `;
+
+                    } else {
+
+                        const answerColors = {
+
+                            "Yes":
+                                "var(--accent-success)",
+
+                            "No":
+                                "var(--accent-error)",
+
+                            "Maybe":
+                                "var(--accent-warn)",
+
+                            "Correct":
+                                "var(--accent-success)"
+                        };
+
+                        const answerColor =
+                            answerColors[q.answer]
+                            || "inherit";
+
+                        ansHtml =
+                            `
+                            <span
+                                style="
+                                    color:${answerColor};
+                                    font-weight:bold;
+                                    text-transform:uppercase;
+                                "
+                            >
+                                [${escapeHtml(q.answer)}]
+                            </span>
+                            `;
+                    }
+
+
+                    // =================================================
+                    // THINKER ANSWER BUTTONS
+                    // =================================================
+
+                    if (
+                        state.tq_thinker_pid ===
+                        myPid
+                        && !q.answer
+                    ) {
+
+                        ansHtml =
+                            `
+                            <button
+                                class="btn-success tq-answer-btn"
+                                data-qid="${q.id}"
+                                data-answer="Yes"
+                                style="
+                                    padding:2px 8px;
+                                    font-size:0.8rem;
+                                    margin-right:4px;
+                                "
+                            >
+                                Yes
+                            </button>
+
+                            <button
+                                class="btn-danger tq-answer-btn"
+                                data-qid="${q.id}"
+                                data-answer="No"
+                                style="
+                                    padding:2px 8px;
+                                    font-size:0.8rem;
+                                    margin-right:4px;
+                                "
+                            >
+                                No
+                            </button>
+
+                            <button
+                                class="btn-secondary tq-answer-btn"
+                                data-qid="${q.id}"
+                                data-answer="Maybe"
+                                style="
+                                    padding:2px 8px;
+                                    font-size:0.8rem;
+                                    margin-right:4px;
+                                "
+                            >
+                                Maybe
+                            </button>
+
+                            <button
+                                class="btn-primary tq-answer-btn"
+                                data-qid="${q.id}"
+                                data-answer="Correct"
+                                style="
+                                    padding:2px 8px;
+                                    font-size:0.8rem;
+                                "
+                            >
+                                Correct!
+                            </button>
+                            `;
+                    }
+
+
+                    div.innerHTML =
+                        `
+                        <strong>
+                            ${escapeHtml(q.name)}:
+                        </strong>
+
+                        ${escapeHtml(q.text)}
+
+                        &rarr;
+
+                        ${ansHtml}
+                        `;
+
+                    qList.appendChild(
+                        div
+                    );
+                }
+            );
+
+
+            // =================================================
+            // ATTACH DYNAMIC 20Q BUTTONS
+            // =================================================
+
+            const volunteerBtn =
+                document.getElementById(
+                    'tq-volunteer-btn'
+                );
+
+            if (volunteerBtn) {
+
+                volunteerBtn.addEventListener(
+                    'click',
+                    () => {
+                        tqActionReq(
+                            'become_thinker'
+                        );
+                    }
+                );
+            }
+
+
+            const setWordBtn =
+                document.getElementById(
+                    'tq-set-word-btn'
+                );
+
+            if (setWordBtn) {
+
+                setWordBtn.addEventListener(
+                    'click',
+                    tqSetWord
+                );
+            }
+
+
+            const nextRoundBtn =
+                document.getElementById(
+                    'tq-next-round-btn'
+                );
+
+            if (nextRoundBtn) {
+
+                nextRoundBtn.addEventListener(
+                    'click',
+                    () => {
+                        tqActionReq(
+                            'become_thinker'
+                        );
+                    }
+                );
+            }
+
+
+            document
+                .querySelectorAll(
+                    '.tq-answer-btn'
+                )
+                .forEach(
+                    button => {
+
+                        button.addEventListener(
+                            'click',
+                            () => {
+
+                                const qid =
+                                    Number(
+                                        button.dataset.qid
+                                    );
+
+                                const answer =
+                                    button.dataset.answer;
+
+                                tqAnswerQ(
+                                    qid,
+                                    answer
+                                );
+                            }
+                        );
+                    }
+                );
         }
-        function launchToast(msg) { const t = document.getElementById('notification-toast'); t.innerText = msg; t.style.opacity = '1'; t.style.pointerEvents = 'auto'; setTimeout(() => { t.style.opacity = '0'; t.style.pointerEvents = 'none'; }, 2000); }
-        function updateTimerDisplay(s) { document.getElementById('timer-display').innerText = `00:${String(s).padStart(2, '0')}`; }
-        function renderLetters(l) { const t = document.getElementById('letter-tray'); t.innerHTML = ''; l.forEach(x => { const e = document.createElement('div'); e.className = 'letter-tile'; e.innerText = x; t.appendChild(e); }); }
-        function shuffleTray() { if(localLetters.includes("?")) return; localLetters.sort(() => Math.random() - 0.5); renderLetters(localLetters); }
-        function escapeHtml(s) { return s.replace(/&/g, "&amp;").replace(/\[/g, "&lt;").replace(/\]/g, "&gt;"); }
+
+
+        // =====================================================
+        // GAME SWITCH
+        // =====================================================
+
+        async function switchGameMode(
+            gt
+        ) {
+
+            const res =
+                await fetch(
+                    '/api/game_switch',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+                        body: JSON.stringify({
+                            room: currentRoom,
+                            pid: myPid,
+                            game_type: gt
+                        })
+                    }
+                );
+
+            const data =
+                await res.json();
+
+            handleBroadcast(
+                data.state,
+                amHost
+            );
+        }
+
+
+        // =====================================================
+        // 20Q ACTION
+        // =====================================================
+
+        async function tqActionReq(
+            action
+        ) {
+
+            const res =
+                await fetch(
+                    '/api/tq_action',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+                        body: JSON.stringify({
+                            room: currentRoom,
+                            pid: myPid,
+                            action
+                        })
+                    }
+                );
+
+            const data =
+                await res.json();
+
+            handleBroadcast(
+                data.state,
+                amHost
+            );
+        }
+
+
+        // =====================================================
+        // SET 20Q WORD
+        // =====================================================
+
+        async function tqSetWord() {
+
+            const input =
+                document.getElementById(
+                    'tq-secret-input'
+                );
+
+            const w =
+                input.value.trim();
+
+            if (!w) {
+                return;
+            }
+
+            const res =
+                await fetch(
+                    '/api/tq_action',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+                        body: JSON.stringify({
+                            room: currentRoom,
+                            pid: myPid,
+                            action: 'set_word',
+                            word: w
+                        })
+                    }
+                );
+
+            const data =
+                await res.json();
+
+            handleBroadcast(
+                data.state,
+                amHost
+            );
+        }
+
+
+        // =====================================================
+        // ASK 20Q
+        // =====================================================
+
+        async function tqSubmitQuestion() {
+
+            const input =
+                document.getElementById(
+                    'tq-question-input'
+                );
+
+            const t =
+                input.value.trim();
+
+            if (!t) {
+                return;
+            }
+
+            input.value = '';
+
+            const res =
+                await fetch(
+                    '/api/tq_action',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+                        body: JSON.stringify({
+                            room: currentRoom,
+                            pid: myPid,
+                            action: 'ask_question',
+                            text: t
+                        })
+                    }
+                );
+
+            const data =
+                await res.json();
+
+            handleBroadcast(
+                data.state,
+                amHost
+            );
+        }
+
+
+        // =====================================================
+        // ANSWER 20Q
+        // =====================================================
+
+        async function tqAnswerQ(
+            qid,
+            answer
+        ) {
+
+            const res =
+                await fetch(
+                    '/api/tq_action',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+                        body: JSON.stringify({
+                            room: currentRoom,
+                            pid: myPid,
+                            action: 'answer_question',
+                            qid,
+                            answer
+                        })
+                    }
+                );
+
+            const data =
+                await res.json();
+
+            handleBroadcast(
+                data.state,
+                amHost
+            );
+        }
+
+
+        // =====================================================
+        // READY
+        // =====================================================
+
+        async function toggleReadyState() {
+
+            const res =
+                await fetch(
+                    '/api/ready',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+                        body: JSON.stringify({
+                            room: currentRoom,
+                            pid: myPid
+                        })
+                    }
+                );
+
+            const data =
+                await res.json();
+
+            handleBroadcast(
+                data.state,
+                amHost
+            );
+        }
+
+
+        // =====================================================
+        // HOST TIMER
+        // =====================================================
+
+        async function controlTimer(
+            action
+        ) {
+
+            const res =
+                await fetch(
+                    '/api/control',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+                        body: JSON.stringify({
+                            room: currentRoom,
+                            pid: myPid,
+                            action
+                        })
+                    }
+                );
+
+            const data =
+                await res.json();
+
+            handleBroadcast(
+                data.state,
+                amHost
+            );
+        }
+
+
+        // =====================================================
+        // UPDATE LIMIT
+        // =====================================================
+
+        async function updateLimit() {
+
+            const val =
+                document
+                    .getElementById(
+                        'limit-input'
+                    )
+                    .value;
+
+            const res =
+                await fetch(
+                    '/api/control',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+                        body: JSON.stringify({
+                            room: currentRoom,
+                            pid: myPid,
+                            action: 'limit',
+                            limit: val
+                        })
+                    }
+                );
+
+            launchToast(
+                `Limit set to ${val}s!`
+            );
+
+            const data =
+                await res.json();
+
+            handleBroadcast(
+                data.state,
+                amHost
+            );
+        }
+
+
+        // =====================================================
+        // CHAT
+        // =====================================================
+
+        async function sendChatMessage(
+            e
+        ) {
+
+            e.preventDefault();
+
+            const input =
+                document.getElementById(
+                    'chat-input'
+                );
+
+            const msg =
+                input.value.trim();
+
+            if (!msg) {
+                return;
+            }
+
+            input.value = '';
+
+            const res =
+                await fetch(
+                    '/api/chat',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+                        body: JSON.stringify({
+                            room: currentRoom,
+                            pid: myPid,
+                            msg,
+                            last_chat_id:
+                                localChatCounter
+                        })
+                    }
+                );
+
+            const data =
+                await res.json();
+
+            handleBroadcast(
+                data.state,
+                amHost
+            );
+        }
+
+
+        // =====================================================
+        // CHAT RENDER
+        // =====================================================
+
+        function appendIncrementalChats(
+            newChatsList
+        ) {
+
+            if (
+                !newChatsList
+                || !newChatsList.length
+            ) {
+                return;
+            }
+
+            const box =
+                document.getElementById(
+                    'chat-stream-box'
+                );
+
+            newChatsList.forEach(
+                c => {
+
+                    if (
+                        c.id >
+                        localChatCounter
+                    ) {
+
+                        localChatCounter =
+                            c.id;
+
+                        const row =
+                            document.createElement(
+                                'div'
+                            );
+
+                        row.className =
+                            'chat-row';
+
+                        row.innerHTML =
+                            `
+                            <span class="chat-name">
+                                ${escapeHtml(c.name)}:
+                            </span>
+
+                            <span>
+                                ${escapeHtml(c.msg)}
+                            </span>
+                            `;
+
+                        box.appendChild(
+                            row
+                        );
+                    }
+                }
+            );
+
+            box.scrollTop =
+                box.scrollHeight;
+        }
+
+
+        // =====================================================
+        // TOAST
+        // =====================================================
+
+        function launchToast(
+            msg
+        ) {
+
+            const t =
+                document.getElementById(
+                    'notification-toast'
+                );
+
+            t.innerText =
+                msg;
+
+            t.style.opacity =
+                '1';
+
+            t.style.pointerEvents =
+                'auto';
+
+            setTimeout(
+                () => {
+
+                    t.style.opacity =
+                        '0';
+
+                    t.style.pointerEvents =
+                        'none';
+
+                },
+                2000
+            );
+        }
+
+
+        // =====================================================
+        // TIMER DISPLAY
+        // =====================================================
+
+        function updateTimerDisplay(
+            s
+        ) {
+
+            document
+                .getElementById(
+                    'timer-display'
+                )
+                .innerText =
+                    `00:${String(s).padStart(2, '0')}`;
+        }
+
+
+        // =====================================================
+        // LETTER RENDER
+        // =====================================================
+
+        function renderLetters(
+            l
+        ) {
+
+            const t =
+                document.getElementById(
+                    'letter-tray'
+                );
+
+            t.innerHTML =
+                '';
+
+            l.forEach(
+                x => {
+
+                    const e =
+                        document.createElement(
+                            'div'
+                        );
+
+                    e.className =
+                        'letter-tile';
+
+                    e.innerText =
+                        x;
+
+                    t.appendChild(
+                        e
+                    );
+                }
+            );
+        }
+
+
+        // =====================================================
+        // SHUFFLE
+        // =====================================================
+
+        function shuffleTray() {
+
+            if (
+                localLetters.includes("?")
+            ) {
+                return;
+            }
+
+            localLetters.sort(
+                () => Math.random() - 0.5
+            );
+
+            renderLetters(
+                localLetters
+            );
+        }
+
+
+        // =====================================================
+        // HTML ESCAPING
+        // =====================================================
+
+        function escapeHtml(
+            s
+        ) {
+
+            return String(s ?? '')
+                .replace(
+                    /&/g,
+                    "&amp;"
+                )
+                .replace(
+                    /</g,
+                    "&lt;"
+                )
+                .replace(
+                    />/g,
+                    "&gt;"
+                )
+                .replace(
+                    /"/g,
+                    "&quot;"
+                )
+                .replace(
+                    /'/g,
+                    "&#039;"
+                );
+        }
+
+
+        // =====================================================
+        // EVENT LISTENERS
+        // =====================================================
+
+        document
+            .getElementById(
+                'enter-lounge-btn'
+            )
+            .addEventListener(
+                'click',
+                connectToLobby
+            );
+
+
+        document
+            .getElementById(
+                'game-select-dropdown'
+            )
+            .addEventListener(
+                'change',
+                function () {
+
+                    switchGameMode(
+                        this.value
+                    );
+                }
+            );
+
+
+        document
+            .getElementById(
+                'guess-form'
+            )
+            .addEventListener(
+                'submit',
+                submitWordLocal
+            );
+
+
+        document
+            .getElementById(
+                'shuffle-btn'
+            )
+            .addEventListener(
+                'click',
+                shuffleTray
+            );
+
+
+        document
+            .getElementById(
+                'ready-toggle-btn'
+            )
+            .addEventListener(
+                'click',
+                toggleReadyState
+            );
+
+
+        document
+            .getElementById(
+                'pause-btn'
+            )
+            .addEventListener(
+                'click',
+                () => {
+                    controlTimer('pause');
+                }
+            );
+
+
+        document
+            .getElementById(
+                'limit-btn'
+            )
+            .addEventListener(
+                'click',
+                updateLimit
+            );
+
+
+        document
+            .getElementById(
+                'skip-btn'
+            )
+            .addEventListener(
+                'click',
+                () => {
+                    controlTimer('skip');
+                }
+            );
+
+
+        document
+            .getElementById(
+                'chat-form'
+            )
+            .addEventListener(
+                'submit',
+                sendChatMessage
+            );
+
+
+        document
+            .getElementById(
+                'tq-ask-btn'
+            )
+            .addEventListener(
+                'click',
+                tqSubmitQuestion
+            );
+
+
+        // Allow Enter in username field
+        // to join the game.
+
+        document
+            .getElementById(
+                'username-input'
+            )
+            .addEventListener(
+                'keydown',
+                event => {
+
+                    if (
+                        event.key ===
+                        'Enter'
+                    ) {
+
+                        connectToLobby();
+                    }
+                }
+            );
+
     </script>
+
 </body>
-</html>
 
+</html>
