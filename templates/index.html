@@ -14,6 +14,7 @@
     >
 
     <style>
+
         :root {
             --bg-main: #121824;
             --panel-bg: #1e293b;
@@ -76,6 +77,10 @@
             font-weight: 700;
         }
 
+        h3 {
+            margin-bottom: 10px;
+        }
+
         .room-tag {
             font-size: 0.9rem;
             color: var(--text-muted);
@@ -133,7 +138,11 @@
         }
 
         .letter-tile {
-            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            background: linear-gradient(
+                135deg,
+                #3b82f6,
+                #1d4ed8
+            );
             color: white;
             width: 55px;
             height: 55px;
@@ -178,6 +187,11 @@
             cursor: pointer;
             transition: all 0.2s;
             font-size: 1rem;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            filter: brightness(1.08);
         }
 
         .btn-primary {
@@ -338,12 +352,162 @@
             margin-bottom: 15px;
             display: none;
         }
+
+        /* =====================================================
+           BLACKJACK
+           ===================================================== */
+
+        .blackjack-table {
+            background:
+                radial-gradient(
+                    circle at center,
+                    #166534 0%,
+                    #14532d 55%,
+                    #052e16 100%
+                );
+            border-radius: 18px;
+            padding: 24px;
+            border: 3px solid #334155;
+            min-height: 420px;
+            box-shadow:
+                inset 0 0 40px rgba(0,0,0,0.35),
+                0 10px 20px rgba(0,0,0,0.25);
+        }
+
+        .bj-section-title {
+            text-align: center;
+            color: #d1fae5;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+
+        .bj-hand {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            min-height: 110px;
+            flex-wrap: wrap;
+        }
+
+        .playing-card {
+            width: 68px;
+            height: 96px;
+            background: #f8fafc;
+            color: #111827;
+            border-radius: 9px;
+            border: 2px solid #cbd5e1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 7px;
+            font-weight: 800;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.35);
+            font-size: 1.1rem;
+        }
+
+        .playing-card.red {
+            color: #dc2626;
+        }
+
+        .playing-card.hidden-card {
+            background:
+                repeating-linear-gradient(
+                    45deg,
+                    #1d4ed8,
+                    #1d4ed8 6px,
+                    #172554 6px,
+                    #172554 12px
+                );
+            color: white;
+            border-color: #93c5fd;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+
+        .card-corner-bottom {
+            transform: rotate(180deg);
+            align-self: flex-end;
+        }
+
+        .bj-value {
+            text-align: center;
+            font-weight: bold;
+            color: #f8fafc;
+            margin-top: 8px;
+        }
+
+        .bj-divider {
+            border: none;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            margin: 20px 0;
+        }
+
+        .bj-controls {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .bj-result {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 900;
+            margin: 12px 0;
+            min-height: 32px;
+        }
+
+        .bj-player-list {
+            margin-top: 20px;
+            background: rgba(0,0,0,0.18);
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        .bj-player-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .bj-player-row:last-child {
+            border-bottom: none;
+        }
+
+        .bj-status-pill {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .bj-empty {
+            color: rgba(255,255,255,0.45);
+            font-style: italic;
+            text-align: center;
+        }
+
     </style>
 </head>
 
+
 <body>
 
+    <!-- =====================================================
+         AUTH
+         ===================================================== -->
+
     <div id="auth-overlay">
+
         <div class="auth-modal">
 
             <h2 style="margin-bottom:20px;">
@@ -352,8 +516,9 @@
 
             <div
                 class="control-group"
-                style="flex-direction: column;"
+                style="flex-direction:column;"
             >
+
                 <input
                     type="text"
                     id="username-input"
@@ -373,20 +538,24 @@
                 >
                     Enter Lounge
                 </button>
+
             </div>
 
         </div>
+
     </div>
+
 
     <div id="notification-toast">
-        Word Saved!
+        Message
     </div>
 
-    <div class="app-container">
 
-        <!-- =====================================================
-             MAIN GAME PANEL
-             ===================================================== -->
+    <!-- =====================================================
+         APP
+         ===================================================== -->
+
+    <div class="app-container">
 
         <div class="panel main-arena">
 
@@ -396,6 +565,7 @@
                     justify-content:space-between;
                     align-items:center;
                     margin-bottom:12px;
+                    gap:12px;
                 "
             >
 
@@ -419,6 +589,7 @@
                             font-weight:bold;
                         "
                     >
+
                         <option value="unselected">
                             -- Select Game Mode --
                         </option>
@@ -430,11 +601,17 @@
                         <option value="twenty_questions">
                             20 Questions Game
                         </option>
+
+                        <option value="blackjack">
+                            Blackjack
+                        </option>
+
                     </select>
 
                 </div>
 
             </div>
+
 
             <span
                 class="room-tag"
@@ -476,7 +653,7 @@
 
 
             <!-- =================================================
-                 ANAGRAM GAME
+                 ANAGRAM
                  ================================================= -->
 
             <div
@@ -506,8 +683,6 @@
                 </div>
 
 
-                <!-- ROUND RESULTS -->
-
                 <div id="inline-results-panel">
 
                     <h3
@@ -527,7 +702,6 @@
                         "
                     >
                         Base word:
-
                         <span
                             id="reveal-root-word"
                             style="
@@ -545,8 +719,6 @@
 
                 </div>
 
-
-                <!-- HOST CONTROLS -->
 
                 <div
                     class="host-controls"
@@ -568,12 +740,12 @@
                             display:flex;
                             gap:10px;
                             align-items:center;
+                            flex-wrap:wrap;
                         "
                     >
 
                         <button
                             class="btn-secondary"
-                            style="padding:8px 16px;"
                             id="pause-btn"
                         >
                             ⏸ Pause
@@ -583,13 +755,12 @@
                             type="number"
                             id="limit-input"
                             value="60"
-                            style="width:80px; padding:6px;"
+                            style="width:80px;padding:6px;"
                             min="10"
                         >
 
                         <button
                             class="btn-secondary"
-                            style="padding:8px 16px;"
                             id="limit-btn"
                         >
                             Set Limit
@@ -597,7 +768,6 @@
 
                         <button
                             class="btn-danger"
-                            style="padding:8px 16px;"
                             id="skip-btn"
                         >
                             ⏭ Skip
@@ -608,15 +778,11 @@
                 </div>
 
 
-                <!-- LETTERS -->
-
                 <div
                     class="letter-tray"
                     id="letter-tray"
                 ></div>
 
-
-                <!-- WORD INPUT -->
 
                 <form id="guess-form">
 
@@ -657,8 +823,6 @@
                     "
                 ></div>
 
-
-                <!-- ROUND CONTROLS -->
 
                 <div
                     style="
@@ -703,9 +867,7 @@
                 </div>
 
                 <p style="margin-bottom:8px;">
-
                     Secret Word Tracker:
-
                     <strong
                         id="tq-word-reveal"
                         style="
@@ -714,7 +876,6 @@
                             letter-spacing:2px;
                         "
                     ></strong>
-
                 </p>
 
                 <div
@@ -758,6 +919,122 @@
 
             </div>
 
+
+            <!-- =================================================
+                 BLACKJACK
+                 ================================================= -->
+
+            <div
+                id="panel-blackjack"
+                class="game-section"
+            >
+
+                <div class="blackjack-table">
+
+                    <div
+                        class="bj-section-title"
+                    >
+                        Dealer
+                    </div>
+
+                    <div
+                        class="bj-hand"
+                        id="bj-dealer-hand"
+                    ></div>
+
+                    <div
+                        class="bj-value"
+                        id="bj-dealer-value"
+                    ></div>
+
+
+                    <hr class="bj-divider">
+
+
+                    <div
+                        class="bj-section-title"
+                    >
+                        Your Hand
+                    </div>
+
+                    <div
+                        class="bj-hand"
+                        id="bj-player-hand"
+                    ></div>
+
+                    <div
+                        class="bj-value"
+                        id="bj-player-value"
+                    ></div>
+
+
+                    <div
+                        class="bj-result"
+                        id="bj-result"
+                    ></div>
+
+
+                    <div
+                        class="bj-controls"
+                    >
+
+                        <button
+                            class="btn-primary"
+                            id="bj-hit-btn"
+                        >
+                            Hit
+                        </button>
+
+                        <button
+                            class="btn-danger"
+                            id="bj-stand-btn"
+                        >
+                            Stand
+                        </button>
+
+                        <button
+                            class="btn-success"
+                            id="bj-next-round-btn"
+                            style="display:none;"
+                        >
+                            Next Round
+                        </button>
+
+                    </div>
+
+
+                    <div
+                        id="bj-status-text"
+                        style="
+                            text-align:center;
+                            margin-top:12px;
+                            color:#d1fae5;
+                            font-weight:bold;
+                        "
+                    ></div>
+
+
+                    <div class="bj-player-list">
+
+                        <div
+                            style="
+                                font-weight:bold;
+                                margin-bottom:8px;
+                            "
+                        >
+                            Players
+                        </div>
+
+                        <div
+                            id="bj-player-list"
+                        ></div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
         </div>
 
 
@@ -767,11 +1044,9 @@
 
         <div class="sidebar-column">
 
-            <!-- LEADERBOARD -->
-
             <div class="panel score-board">
 
-                <h3 style="margin-bottom:10px;">
+                <h3>
                     Standings
                 </h3>
 
@@ -787,18 +1062,18 @@
 
                     </thead>
 
-                    <tbody id="leaderboard-body"></tbody>
+                    <tbody
+                        id="leaderboard-body"
+                    ></tbody>
 
                 </table>
 
             </div>
 
 
-            <!-- CHAT -->
-
             <div class="panel chat-module">
 
-                <h3 style="margin-bottom:10px;">
+                <h3>
                     Room Chat
                 </h3>
 
@@ -843,1114 +1118,1144 @@
     </div>
 
 
-    <!-- =========================================================
-         JAVASCRIPT
-         ========================================================= -->
+<script>
 
-    <script>
+    // =========================================================
+    // GLOBAL STATE
+    // =========================================================
 
-        let currentRoom = "lounge";
-        let myPid = null;
-        let amHost = false;
-        let localChatCounter = 0;
+    let currentRoom = "lounge";
+    let myPid = null;
+    let amHost = false;
+    let localChatCounter = 0;
 
-        let localLetters = [];
-        let localRoundWords = [];
+    let localLetters = [];
+    let localRoundWords = [];
 
-        let currentRoundId = -1;
-        let serverLettersSig = "";
+    let currentRoundId = -1;
+    let serverLettersSig = "";
 
-        let cachedTqStatus = "";
+    let cachedTqStatus = "";
+    let syncIntervalStarted = false;
 
-        let syncIntervalStarted = false;
 
+    // =========================================================
+    // CONNECT
+    // =========================================================
 
-        // =====================================================
-        // JOIN GAME
-        // =====================================================
+    async function connectToLobby() {
 
-        async function connectToLobby() {
-
-            const name =
-                document
-                    .getElementById('username-input')
-                    .value
-                    .trim();
-
-            const roomInput =
-                document
-                    .getElementById('room-input')
-                    .value
-                    .trim();
-
-            if (!name) {
-                return;
-            }
-
-            currentRoom =
-                roomInput || "lounge";
-
+        const name =
             document
-                .getElementById('room-display')
-                .innerText =
-                    `Room: ${currentRoom}`;
+                .getElementById("username-input")
+                .value
+                .trim();
+
+        const roomInput =
+            document
+                .getElementById("room-input")
+                .value
+                .trim();
+
+        if (!name) {
+            launchToast("Enter a screen name!");
+            return;
+        }
+
+        currentRoom =
+            roomInput || "lounge";
+
+        document
+            .getElementById("room-display")
+            .innerText =
+                `Room: ${currentRoom}`;
+
+        const res =
+            await fetch(
+                "/api/join",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        name,
+                        room: currentRoom,
+                        pid: myPid
+                    })
+                }
+            );
+
+        const data =
+            await res.json();
+
+        myPid = data.pid;
+
+        handleBroadcast(
+            data.state,
+            data.is_host
+        );
+
+        document
+            .getElementById("auth-overlay")
+            .style.display = "none";
+
+        if (!syncIntervalStarted) {
+
+            syncIntervalStarted = true;
+
+            setInterval(
+                syncLoop,
+                1000
+            );
+        }
+    }
+
+
+    // =========================================================
+    // SYNC
+    // =========================================================
+
+    async function syncLoop() {
+
+        try {
 
             const res =
                 await fetch(
-                    '/api/join',
+                    "/api/sync",
                     {
-                        method: 'POST',
+                        method: "POST",
                         headers: {
-                            'Content-Type':
-                                'application/json'
+                            "Content-Type":
+                                "application/json"
                         },
                         body: JSON.stringify({
-                            name,
                             room: currentRoom,
-                            pid: myPid
+                            pid: myPid,
+                            buffered_words:
+                                localRoundWords,
+                            last_chat_id:
+                                localChatCounter
                         })
                     }
                 );
 
+            if (res.status === 404) {
+
+                window.location.reload();
+                return;
+            }
+
             const data =
                 await res.json();
-
-            myPid = data.pid;
 
             handleBroadcast(
                 data.state,
                 data.is_host
             );
 
-            document
-                .getElementById('auth-overlay')
-                .style.display = 'none';
-
-            if (!syncIntervalStarted) {
-
-                syncIntervalStarted = true;
-
-                setInterval(
-                    syncLoop,
-                    1000
+            if (data.breakdown) {
+                showInlineBreakdown(
+                    data.breakdown
                 );
             }
+
+        } catch (e) {
+            // Temporary connection errors ignored
+        }
+    }
+
+
+    // =========================================================
+    // MAIN BROADCAST
+    // =========================================================
+
+    function handleBroadcast(
+        state,
+        isHost
+    ) {
+
+        if (!state) {
+            return;
         }
 
+        amHost = isHost;
 
-        // =====================================================
-        // SYNC LOOP
-        // =====================================================
-
-        async function syncLoop() {
-
-            try {
-
-                const res =
-                    await fetch(
-                        '/api/sync',
-                        {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type':
-                                    'application/json'
-                            },
-                            body: JSON.stringify({
-                                room: currentRoom,
-                                pid: myPid,
-                                buffered_words:
-                                    localRoundWords,
-                                last_chat_id:
-                                    localChatCounter
-                            })
-                        }
-                    );
-
-                if (res.status === 404) {
-
-                    window.location.reload();
-
-                    return;
-                }
-
-                const data =
-                    await res.json();
-
-                handleBroadcast(
-                    data.state,
-                    data.is_host
-                );
-
-                if (data.breakdown) {
-
-                    showInlineBreakdown(
-                        data.breakdown
-                    );
-                }
-
-            } catch (e) {
-                // Ignore temporary connection errors
-            }
-        }
-
-
-        // =====================================================
-        // MAIN BROADCAST HANDLER
-        // =====================================================
-
-        function handleBroadcast(
-            state,
-            isHost
-        ) {
-
-            amHost = isHost;
-
-            document
-                .getElementById('host-panel')
-                .style.display =
-                    (
-                        amHost
-                        && state.game_type === 'anagram'
-                    )
-                        ? 'block'
-                        : 'none';
-
-
-            if (
-                !state.game_locked
-                && amHost
-            ) {
-
-                document
-                    .getElementById(
-                        'host-game-switcher'
-                    )
-                    .style.display = 'block';
-
-            } else {
-
-                document
-                    .getElementById(
-                        'host-game-switcher'
-                    )
-                    .style.display = 'none';
-            }
-
-
-            document
-                .getElementById(
-                    'panel-unselected'
-                )
-                .style.display =
-                    state.game_type === 'unselected'
-                        ? 'block'
-                        : 'none';
-
-            document
-                .getElementById(
-                    'panel-anagram'
-                )
-                .style.display =
-                    state.game_type === 'anagram'
-                        ? 'block'
-                        : 'none';
-
-            document
-                .getElementById(
-                    'panel-tq'
-                )
-                .style.display =
-                    state.game_type === 'twenty_questions'
-                        ? 'block'
-                        : 'none';
-
-
-            if (
-                state.game_type ===
-                'unselected'
-            ) {
-
-                document
-                    .getElementById(
-                        'game-title'
-                    )
-                    .innerText =
-                        "Lounge Lobby";
-
-                document
-                    .getElementById(
-                        'lounge-wait-text'
-                    )
-                    .innerText =
-                        amHost
-                            ? "👑 Pick locked game above."
-                            : "Waiting for host...";
-            }
-
-
-            appendIncrementalChats(
-                state.new_chats
+        const hostPanel =
+            document.getElementById(
+                "host-panel"
             );
 
+        if (hostPanel) {
 
-            if (
-                state.game_type ===
-                'anagram'
-            ) {
-
-                document
-                    .getElementById(
-                        'game-title'
-                    )
-                    .innerText =
-                        "Anagram Arena";
-
-                handleAnagramBroadcast(
-                    state
-                );
-
-            } else if (
-                state.game_type ===
-                'twenty_questions'
-            ) {
-
-                document
-                    .getElementById(
-                        'game-title'
-                    )
-                    .innerText =
-                        "20 Questions";
-
-                handleTqBroadcast(
-                    state
-                );
-            }
+            hostPanel.style.display =
+                (
+                    amHost
+                    && state.game_type === "anagram"
+                )
+                    ? "block"
+                    : "none";
+        }
 
 
-            // =================================================
-            // LEADERBOARD
-            // Server now sends this sorted by score.
-            // =================================================
+        // -----------------------------------------------------
+        // GAME SELECTOR
+        // -----------------------------------------------------
 
-            const tbody =
-                document
-                    .getElementById(
-                        'leaderboard-body'
-                    );
+        const switcher =
+            document.getElementById(
+                "host-game-switcher"
+            );
 
-            tbody.innerHTML = '';
+        if (switcher) {
 
-            state.leaderboard.forEach(
-                p => {
+            switcher.style.display =
+                (
+                    !state.game_locked
+                    && amHost
+                )
+                    ? "block"
+                    : "none";
+        }
 
-                    const tr =
-                        document.createElement(
-                            'tr'
-                        );
 
-                    const readyLabel =
-                        p.ready
+        // -----------------------------------------------------
+        // PANELS
+        // -----------------------------------------------------
 
-                            ? `<span style="
-                                color:var(--accent-success);
-                                font-weight:bold;
-                              ">
-                                READY
-                              </span>`
+        document
+            .getElementById("panel-unselected")
+            .style.display =
+                state.game_type === "unselected"
+                    ? "block"
+                    : "none";
 
-                            : `<span style="
-                                color:var(--text-muted);
-                              ">
-                                WAITING
-                              </span>`;
+        document
+            .getElementById("panel-anagram")
+            .style.display =
+                state.game_type === "anagram"
+                    ? "block"
+                    : "none";
 
-                    tr.innerHTML =
-                        `
-                        <td>
-                            <strong>
-                                ${escapeHtml(p.name)}
-                                ${p.is_host ? ' 👑' : ''}
-                            </strong>
-                        </td>
+        document
+            .getElementById("panel-tq")
+            .style.display =
+                state.game_type === "twenty_questions"
+                    ? "block"
+                    : "none";
 
-                        <td>
-                            ${
-                                state.game_type === 'anagram'
-                                    ? readyLabel
-                                    : '-'
-                            }
-                        </td>
+        document
+            .getElementById("panel-blackjack")
+            .style.display =
+                state.game_type === "blackjack"
+                    ? "block"
+                    : "none";
 
-                        <td>
-                            ${p.score} pts
-                        </td>
-                        `;
 
-                    tbody.appendChild(
-                        tr
-                    );
-                }
+        // -----------------------------------------------------
+        // TITLE
+        // -----------------------------------------------------
+
+        const title =
+            document.getElementById(
+                "game-title"
+            );
+
+        if (state.game_type === "unselected") {
+
+            title.innerText =
+                "Lounge Lobby";
+
+            document
+                .getElementById(
+                    "lounge-wait-text"
+                )
+                .innerText =
+                    amHost
+                        ? "👑 Pick a game above."
+                        : "Waiting for host...";
+
+        } else if (
+            state.game_type === "anagram"
+        ) {
+
+            title.innerText =
+                "Anagrams";
+
+            handleAnagramBroadcast(
+                state
+            );
+
+        } else if (
+            state.game_type === "twenty_questions"
+        ) {
+
+            title.innerText =
+                "20 Questions";
+
+            handleTqBroadcast(
+                state
+            );
+
+        } else if (
+            state.game_type === "blackjack"
+        ) {
+
+            title.innerText =
+                "Blackjack";
+
+            handleBlackjackBroadcast(
+                state
             );
         }
 
 
-        // =====================================================
-        // ANAGRAM BROADCAST
-        // =====================================================
+        // -----------------------------------------------------
+        // LEADERBOARD
+        // -----------------------------------------------------
 
-        function handleAnagramBroadcast(
-            state
+        renderLeaderboard(
+            state.leaderboard || []
+        );
+
+
+        // -----------------------------------------------------
+        // CHAT
+        // -----------------------------------------------------
+
+        appendIncrementalChats(
+            state.new_chats
+        );
+    }
+
+
+    // =========================================================
+    // GAME SWITCH
+    // =========================================================
+
+    async function switchGameMode(
+        gameType
+    ) {
+
+        if (
+            !gameType
+            || gameType === "unselected"
+        ) {
+            return;
+        }
+
+        const res =
+            await fetch(
+                "/api/game_switch",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        room: currentRoom,
+                        pid: myPid,
+                        game_type: gameType
+                    })
+                }
+            );
+
+        const data =
+            await res.json();
+
+        handleBroadcast(
+            data.state,
+            amHost
+        );
+    }
+
+
+    // =========================================================
+    // LEADERBOARD
+    // =========================================================
+
+    function renderLeaderboard(
+        players
+    ) {
+
+        const body =
+            document.getElementById(
+                "leaderboard-body"
+            );
+
+        body.innerHTML = "";
+
+        players.forEach(
+            (player, index) => {
+
+                const row =
+                    document.createElement(
+                        "tr"
+                    );
+
+                let status =
+                    "";
+
+                if (player.is_host) {
+                    status += "👑 ";
+                }
+
+                if (player.ready) {
+                    status += "✓ Ready";
+                } else {
+                    status += "Playing";
+                }
+
+                row.innerHTML =
+                    `
+                    <td>
+                        ${index + 1}.
+                        ${escapeHtml(player.name)}
+                    </td>
+
+                    <td>
+                        ${status}
+                    </td>
+
+                    <td>
+                        ${player.score}
+                    </td>
+                    `;
+
+                body.appendChild(row);
+            }
+        );
+    }
+
+
+    // =========================================================
+    // ANAGRAM BROADCAST
+    // =========================================================
+
+    function handleAnagramBroadcast(
+        state
+    ) {
+
+        const flashBlock =
+            document.getElementById(
+                "countdown-flash-block"
+            );
+
+        const txtInput =
+            document.getElementById(
+                "guess-input"
+            );
+
+        const btnSubmit =
+            document.getElementById(
+                "guess-submit-btn"
+            );
+
+        const statusLabel =
+            document.getElementById(
+                "lock-status-msg"
+            );
+
+        const readyBtn =
+            document.getElementById(
+                "ready-toggle-btn"
+            );
+
+        const shuffleBtn =
+            document.getElementById(
+                "shuffle-btn"
+            );
+
+        const resultsPanel =
+            document.getElementById(
+                "inline-results-panel"
+            );
+
+
+        // -----------------------------------------------------
+        // NEW ROUND
+        // -----------------------------------------------------
+
+        if (
+            state.round_id !== currentRoundId
+            && !state.countdown_active
         ) {
 
-            const flashBlock =
-                document.getElementById(
-                    'countdown-flash-block'
-                );
+            currentRoundId =
+                state.round_id;
 
-            const txtInput =
-                document.getElementById(
-                    'guess-input'
-                );
+            localLetters =
+                [...state.letters];
 
-            const btnSubmit =
-                document.getElementById(
-                    'guess-submit-btn'
-                );
+            renderLetters(
+                localLetters
+            );
 
-            const statusLabel =
-                document.getElementById(
-                    'lock-status-msg'
-                );
+            localRoundWords = [];
 
-            const readyBtn =
-                document.getElementById(
-                    'ready-toggle-btn'
-                );
+            renderLocalWords();
 
-            const shuffleBtn =
-                document.getElementById(
-                    'shuffle-btn'
-                );
-
-            const resultsPanel =
-                document.getElementById(
-                    'inline-results-panel'
-                );
+            resultsPanel.style.display =
+                "none";
+        }
 
 
-            // =================================================
-            // NEW ROUND
-            // =================================================
+        // -----------------------------------------------------
+        // COUNTDOWN
+        // -----------------------------------------------------
 
-            if (
-                state.round_id !==
-                currentRoundId
-            ) {
+        if (state.countdown_active) {
 
-                currentRoundId =
-                    state.round_id;
+            localRoundWords = [];
 
-                localLetters =
-                    [...state.letters];
+            renderLocalWords();
 
-                renderLetters(
-                    localLetters
-                );
+            resultsPanel.style.display =
+                "none";
 
-                localRoundWords = [];
+            document
+                .getElementById(
+                    "breakdown-list-container"
+                )
+                .innerHTML = "";
 
-                renderLocalWords();
+            document
+                .getElementById(
+                    "reveal-root-word"
+                )
+                .innerText = "";
 
-                resultsPanel.style.display =
-                    'none';
+            flashBlock.style.display =
+                "block";
 
-                resultsPanel.innerHTML = `
-                    <h3
-                        id="breakdown-title"
-                        style="
-                            color:var(--accent-warn);
-                            margin-bottom:5px;
-                        "
-                    >
-                        Round Finished
-                    </h3>
+            flashBlock.innerText =
+                state.time_left;
 
-                    <p
-                        style="
-                            font-size:0.85rem;
-                            color:var(--text-muted);
-                        "
-                    >
-                        Base word:
+            txtInput.value = "";
 
-                        <span
-                            id="reveal-root-word"
-                            style="
-                                color:white;
-                                font-weight:bold;
-                                text-transform:uppercase;
-                            "
-                        ></span>
-                    </p>
+            txtInput.disabled = true;
+            btnSubmit.disabled = true;
+            readyBtn.disabled = true;
+            shuffleBtn.disabled = true;
 
-                    <div
-                        class="breakdown-list"
-                        id="breakdown-list-container"
-                    ></div>
-                `;
-            }
+            statusLabel.innerText =
+                "GET READY!";
 
-
-            // =================================================
-            // COUNTDOWN
-            // =================================================
-
-            if (
-                state.countdown_active
-            ) {
-
-                // IMPORTANT:
-                // Clear all old round information immediately
-                // when countdown begins.
-
-                localRoundWords = [];
-
-                renderLocalWords();
-
-                resultsPanel.style.display =
-                    'none';
-
-                const breakdownContainer =
-                    document.getElementById(
-                        'breakdown-list-container'
-                    );
-
-                if (
-                    breakdownContainer
-                ) {
-
-                    breakdownContainer.innerHTML =
-                        '';
-                }
-
-                const revealWord =
-                    document.getElementById(
-                        'reveal-root-word'
-                    );
-
-                if (revealWord) {
-                    revealWord.innerText =
-                        '';
-                }
-
-
-                flashBlock.style.display =
-                    'block';
-
-                flashBlock.innerText =
-                    state.time_left;
-
-                txtInput.value = '';
-
-                txtInput.disabled = true;
-
-                btnSubmit.disabled = true;
-
-                readyBtn.disabled = true;
-
-                shuffleBtn.disabled = true;
-
-                statusLabel.innerText =
-                    "GET READY!";
-
-                statusLabel.style.color =
-                    "var(--accent-error)";
-
-                updateTimerDisplay(
-                    state.time_left
-                );
-
-                return;
-            }
-
-
-            // =================================================
-            // LETTERS
-            // =================================================
-
-            let comingSig =
-                state.letters.join("");
-
-            if (
-                comingSig !==
-                serverLettersSig
-            ) {
-
-                serverLettersSig =
-                    comingSig;
-
-                localLetters =
-                    [...state.letters];
-
-                renderLetters(
-                    localLetters
-                );
-            }
-
+            statusLabel.style.color =
+                "var(--accent-error)";
 
             updateTimerDisplay(
                 state.time_left
             );
 
-
-            // =================================================
-            // ACTIVE / FINISHED
-            // =================================================
-
-            flashBlock.style.display =
-                'none';
-
-            if (
-                state.timer_active
-            ) {
-
-                txtInput.disabled = false;
-
-                btnSubmit.disabled = false;
-
-                readyBtn.disabled = true;
-
-                shuffleBtn.disabled = false;
-
-                statusLabel.innerText =
-                    "ROUND RUNNING - ENTRY ACTIVE";
-
-                statusLabel.style.color =
-                    "var(--accent-success)";
-
-            } else {
-
-                txtInput.disabled = true;
-
-                btnSubmit.disabled = true;
-
-                readyBtn.disabled = false;
-
-                shuffleBtn.disabled = true;
-
-                statusLabel.innerText =
-                    "ROUND FINISHED - READY UP";
-
-                statusLabel.style.color =
-                    "var(--accent-warn)";
-            }
+            return;
         }
 
 
-        // =====================================================
-        // SUBMIT ANAGRAM
-        // =====================================================
+        // -----------------------------------------------------
+        // LETTERS
+        // -----------------------------------------------------
 
-        function submitWordLocal(e) {
+        const comingSig =
+            state.letters.join("");
 
-            e.preventDefault();
-
-            const input =
-                document.getElementById(
-                    'guess-input'
-                );
-
-            const guess =
-                input.value
-                    .trim()
-                    .toLowerCase()
-                    .replace(
-                        /[^a-z]/g,
-                        ""
-                    );
-
-            input.value = '';
-
-            if (!guess) {
-                return;
-            }
-
-            if (
-                guess.length < 3
-                || guess.length > 6
-            ) {
-
-                launchToast(
-                    "Must be 3-6 letters!"
-                );
-
-                return;
-            }
-
-            if (
-                localRoundWords.includes(
-                    guess
-                )
-            ) {
-
-                launchToast(
-                    "Word already on board!"
-                );
-
-                return;
-            }
-
-            let trayPool =
-                [...localLetters];
-
-            for (
-                let char of guess
-            ) {
-
-                let idx =
-                    trayPool.indexOf(
-                        char
-                    );
-
-                if (idx === -1) {
-
-                    launchToast(
-                        `Letter "${char.toUpperCase()}" not in tray!`
-                    );
-
-                    return;
-                }
-
-                trayPool.splice(
-                    idx,
-                    1
-                );
-            }
-
-            localRoundWords.push(
-                guess
-            );
-
-            renderLocalWords();
-
-            input.focus();
-        }
-
-
-        // =====================================================
-        // RENDER LOCAL WORDS
-        // =====================================================
-
-        function renderLocalWords() {
-
-            const box =
-                document.getElementById(
-                    'local-words-box'
-                );
-
-            box.innerHTML = '';
-
-            localRoundWords.forEach(
-                word => {
-
-                    const span =
-                        document.createElement(
-                            'span'
-                        );
-
-                    span.className =
-                        'word-token';
-
-                    span.innerText =
-                        word;
-
-                    box.appendChild(
-                        span
-                    );
-                }
-            );
-        }
-
-
-        // =====================================================
-        // ROUND BREAKDOWN
-        // =====================================================
-
-        function showInlineBreakdown(
-            data
+        if (
+            comingSig !==
+            serverLettersSig
         ) {
 
-            const panel =
-                document.getElementById(
-                    'inline-results-panel'
+            serverLettersSig =
+                comingSig;
+
+            localLetters =
+                [...state.letters];
+
+            renderLetters(
+                localLetters
+            );
+        }
+
+
+        updateTimerDisplay(
+            state.time_left
+        );
+
+        flashBlock.style.display =
+            "none";
+
+
+        // -----------------------------------------------------
+        // ACTIVE
+        // -----------------------------------------------------
+
+        if (state.timer_active) {
+
+            txtInput.disabled = false;
+            btnSubmit.disabled = false;
+
+            readyBtn.disabled = true;
+            shuffleBtn.disabled = false;
+
+            statusLabel.innerText =
+                "ROUND RUNNING - ENTRY ACTIVE";
+
+            statusLabel.style.color =
+                "var(--accent-success)";
+
+        } else {
+
+            txtInput.disabled = true;
+            btnSubmit.disabled = true;
+
+            readyBtn.disabled = false;
+            shuffleBtn.disabled = true;
+
+            statusLabel.innerText =
+                "ROUND FINISHED - READY UP";
+
+            statusLabel.style.color =
+                "var(--accent-warn)";
+        }
+    }
+
+
+    // =========================================================
+    // ANAGRAM SUBMIT
+    // =========================================================
+
+    function submitWordLocal(
+        event
+    ) {
+
+        event.preventDefault();
+
+        const input =
+            document.getElementById(
+                "guess-input"
+            );
+
+        const guess =
+            input.value
+                .trim()
+                .toLowerCase()
+                .replace(
+                    /[^a-z]/g,
+                    ""
                 );
 
-            const revealWord =
-                document.getElementById(
-                    'reveal-root-word'
+        input.value = "";
+
+        if (!guess) {
+            return;
+        }
+
+        if (
+            guess.length < 3
+            || guess.length > 6
+        ) {
+
+            launchToast(
+                "Must be 3-6 letters!"
+            );
+
+            return;
+        }
+
+        if (
+            localRoundWords.includes(
+                guess
+            )
+        ) {
+
+            launchToast(
+                "Word already on board!"
+            );
+
+            return;
+        }
+
+        let trayPool =
+            [...localLetters];
+
+        for (const char of guess) {
+
+            const index =
+                trayPool.indexOf(
+                    char
                 );
 
-            const container =
-                document.getElementById(
-                    'breakdown-list-container'
+            if (index === -1) {
+
+                launchToast(
+                    `Letter "${char.toUpperCase()}" not in tray!`
                 );
 
-            revealWord.innerText =
-                data.round_word;
+                return;
+            }
 
-            container.innerHTML =
-                '';
+            trayPool.splice(
+                index,
+                1
+            );
+        }
 
-            if (
-                !data.breakdown
-                || data.breakdown.length === 0
-            ) {
+        localRoundWords.push(
+            guess
+        );
 
-                container.innerHTML =
+        renderLocalWords();
+
+        input.focus();
+    }
+
+
+    // =========================================================
+    // ANAGRAM WORD RENDER
+    // =========================================================
+
+    function renderLocalWords() {
+
+        const box =
+            document.getElementById(
+                "local-words-box"
+            );
+
+        box.innerHTML = "";
+
+        localRoundWords.forEach(
+            word => {
+
+                const span =
+                    document.createElement(
+                        "span"
+                    );
+
+                span.className =
+                    "word-token";
+
+                span.innerText =
+                    word;
+
+                box.appendChild(
+                    span
+                );
+            }
+        );
+    }
+
+
+    // =========================================================
+    // ANAGRAM BREAKDOWN
+    // =========================================================
+
+    function showInlineBreakdown(
+        data
+    ) {
+
+        const panel =
+            document.getElementById(
+                "inline-results-panel"
+            );
+
+        const list =
+            document.getElementById(
+                "breakdown-list-container"
+            );
+
+        const root =
+            document.getElementById(
+                "reveal-root-word"
+            );
+
+        root.innerText =
+            data.round_word || "";
+
+        list.innerHTML = "";
+
+        data.breakdown.forEach(
+            item => {
+
+                const row =
+                    document.createElement(
+                        "div"
+                    );
+
+                row.className =
+                    "breakdown-row";
+
+                row.innerHTML =
                     `
-                    <p
+                    <span>
+                        ${escapeHtml(item.word)}
+                    </span>
+
+                    <span
                         style="
-                            text-align:center;
-                            padding:10px;
-                            color:var(--text-muted);
+                            color:${
+                                item.valid
+                                    ? "var(--accent-success)"
+                                    : "var(--accent-error)"
+                            };
                         "
                     >
-                        No words found.
-                    </p>
+                        ${
+                            item.valid
+                                ? "+" + item.points
+                                : "INVALID"
+                        }
+                    </span>
                     `;
+
+                list.appendChild(row);
+            }
+        );
+
+        panel.style.display =
+            "block";
+    }
+
+
+    // =========================================================
+    // READY
+    // =========================================================
+
+    async function toggleReadyState() {
+
+        const res =
+            await fetch(
+                "/api/ready",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        room: currentRoom,
+                        pid: myPid
+                    })
+                }
+            );
+
+        const data =
+            await res.json();
+
+        handleBroadcast(
+            data.state,
+            amHost
+        );
+    }
+
+
+    // =========================================================
+    // HOST TIMER
+    // =========================================================
+
+    async function controlTimer(
+        action
+    ) {
+
+        const res =
+            await fetch(
+                "/api/control",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        room: currentRoom,
+                        pid: myPid,
+                        action
+                    })
+                }
+            );
+
+        const data =
+            await res.json();
+
+        handleBroadcast(
+            data.state,
+            amHost
+        );
+    }
+
+
+    async function updateLimit() {
+
+        const value =
+            document
+                .getElementById(
+                    "limit-input"
+                )
+                .value;
+
+        const res =
+            await fetch(
+                "/api/control",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        room: currentRoom,
+                        pid: myPid,
+                        action: "limit",
+                        limit: value
+                    })
+                }
+            );
+
+        const data =
+            await res.json();
+
+        launchToast(
+            `Limit set to ${value}s!`
+        );
+
+        handleBroadcast(
+            data.state,
+            amHost
+        );
+    }
+
+
+    // =========================================================
+    // 20 QUESTIONS
+    // =========================================================
+
+    function handleTqBroadcast(
+        state
+    ) {
+
+        const banner =
+            document.getElementById(
+                "tq-status-banner"
+            );
+
+        const controls =
+            document.getElementById(
+                "tq-controls-area"
+            );
+
+        const askArea =
+            document.getElementById(
+                "tq-ask-area"
+            );
+
+        const wordReveal =
+            document.getElementById(
+                "tq-word-reveal"
+            );
+
+        const count =
+            document.getElementById(
+                "tq-count-num"
+            );
+
+        count.innerText =
+            state.tq_questions.length;
+
+        wordReveal.innerText =
+            state.tq_secret_word || "";
+
+        controls.innerHTML = "";
+
+        if (
+            state.tq_status ===
+            "waiting_thinker"
+        ) {
+
+            banner.innerText =
+                "Status: Waiting for Thinker";
+
+            askArea.style.display =
+                "none";
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+            button.className =
+                "btn-primary";
+
+            button.innerText =
+                "Volunteer";
+
+            button.addEventListener(
+                "click",
+                () => {
+                    tqActionReq(
+                        "become_thinker"
+                    );
+                }
+            );
+
+            controls.appendChild(
+                button
+            );
+
+        } else if (
+            state.tq_status ===
+            "waiting_word"
+        ) {
+
+            askArea.style.display =
+                "none";
+
+            if (
+                state.tq_thinker_pid ===
+                myPid
+            ) {
+
+                banner.innerText =
+                    "Status: Enter word!";
+
+                const group =
+                    document.createElement(
+                        "div"
+                    );
+
+                group.className =
+                    "control-group";
+
+                group.innerHTML =
+                    `
+                    <input
+                        type="text"
+                        id="tq-secret-input"
+                        placeholder="Word..."
+                    >
+
+                    <button
+                        class="btn-success"
+                        id="tq-set-word-btn"
+                    >
+                        Set
+                    </button>
+                    `;
+
+                controls.appendChild(
+                    group
+                );
+
+                document
+                    .getElementById(
+                        "tq-set-word-btn"
+                    )
+                    .addEventListener(
+                        "click",
+                        tqSetWord
+                    );
 
             } else {
 
-                data.breakdown.forEach(
-                    item => {
+                banner.innerText =
+                    "Status: Setting word...";
+            }
 
-                        const row =
-                            document.createElement(
-                                'div'
-                            );
+        } else if (
+            state.tq_status ===
+            "active"
+        ) {
 
-                        row.className =
-                            'breakdown-row';
+            banner.innerText =
+                state.tq_thinker_pid === myPid
+                    ? "Status: Answer Questions!"
+                    : "Status: Guessing Active!";
 
-                        const color =
-                            item.valid
-                                ? 'var(--accent-success)'
-                                : 'var(--accent-error)';
+            askArea.style.display =
+                state.tq_thinker_pid === myPid
+                    ? "none"
+                    : "block";
 
-                        const label =
-                            item.valid
-                                ? `+${item.points} PTS`
-                                : 'INVALID';
+        } else if (
+            state.tq_status ===
+            "won"
+        ) {
 
-                        row.innerHTML =
-                            `
-                            <span>
-                                ${escapeHtml(item.word)}
-                            </span>
+            banner.innerText =
+                "Status: Word Solved!";
 
-                            <span
-                                style="color:${color};"
-                            >
-                                ${label}
-                            </span>
-                            `;
+            askArea.style.display =
+                "none";
 
-                        container.appendChild(
-                            row
+            if (
+                state.tq_thinker_pid ===
+                myPid
+            ) {
+
+                const button =
+                    document.createElement(
+                        "button"
+                    );
+
+                button.className =
+                    "btn-success";
+
+                button.innerText =
+                    "Next Round";
+
+                button.addEventListener(
+                    "click",
+                    () => {
+                        tqActionReq(
+                            "become_thinker"
                         );
                     }
                 );
-            }
 
-            panel.style.display =
-                'block';
+                controls.appendChild(
+                    button
+                );
+            }
         }
 
 
-        // =====================================================
-        // 20 QUESTIONS
-        // =====================================================
+        // -----------------------------------------------------
+        // QUESTIONS
+        // -----------------------------------------------------
 
-        function handleTqBroadcast(
-            state
-        ) {
+        const qList =
+            document.getElementById(
+                "tq-questions-list"
+            );
 
-            document
-                .getElementById(
-                    'tq-word-reveal'
-                )
-                .innerText =
-                    state.tq_secret_word
-                    || '???';
+        qList.innerHTML = "";
 
-            document
-                .getElementById(
-                    'tq-count-num'
-                )
-                .innerText =
-                    state.tq_questions.length;
+        state.tq_questions.forEach(
+            q => {
 
-            const controls =
-                document.getElementById(
-                    'tq-controls-area'
-                );
+                const div =
+                    document.createElement(
+                        "div"
+                    );
 
-            const askArea =
-                document.getElementById(
-                    'tq-ask-area'
-                );
+                div.style.cssText =
+                    `
+                    margin-bottom:6px;
+                    padding:8px;
+                    background:#0f172a;
+                    border-radius:6px;
+                    border:1px solid #334155;
+                    `;
 
-            const banner =
-                document.getElementById(
-                    'tq-status-banner'
-                );
+                let answerHtml = "";
 
-
-            if (
-                cachedTqStatus !==
-                    state.tq_status
-                ||
-                (
-                    state.tq_status ===
-                    'waiting_word'
-                    &&
-                    controls.children.length === 0
-                )
-            ) {
-
-                cachedTqStatus =
-                    state.tq_status;
-
-
-                // -------------------------------------------------
-                // WAITING FOR THINKER
-                // -------------------------------------------------
-
-                if (
-                    state.tq_status ===
-                    'waiting_thinker'
-                ) {
-
-                    banner.innerText =
-                        "Status: Need a Thinker!";
-
-                    controls.innerHTML =
-                        `
-                        <button
-                            class="btn-primary"
-                            id="tq-volunteer-btn"
-                        >
-                            Volunteer
-                        </button>
-                        `;
-
-                    askArea.style.display =
-                        'none';
-
-                }
-
-
-                // -------------------------------------------------
-                // WAITING FOR WORD
-                // -------------------------------------------------
-
-                else if (
-                    state.tq_status ===
-                    'waiting_word'
-                ) {
+                if (!q.answer) {
 
                     if (
                         state.tq_thinker_pid ===
                         myPid
                     ) {
 
-                        banner.innerText =
-                            "Status: Enter word!";
-
-                        controls.innerHTML =
-                            `
-                            <div class="control-group">
-
-                                <input
-                                    type="text"
-                                    id="tq-secret-input"
-                                    placeholder="Word..."
-                                >
-
-                                <button
-                                    class="btn-success"
-                                    id="tq-set-word-btn"
-                                >
-                                    Set
-                                </button>
-
-                            </div>
-                            `;
-
-                    } else {
-
-                        banner.innerText =
-                            "Status: Setting word...";
-
-                        controls.innerHTML =
-                            '';
-                    }
-
-                    askArea.style.display =
-                        'none';
-                }
-
-
-                // -------------------------------------------------
-                // ACTIVE
-                // -------------------------------------------------
-
-                else if (
-                    state.tq_status ===
-                    'active'
-                ) {
-
-                    banner.innerText =
-                        state.tq_thinker_pid === myPid
-                            ? "Status: Answer Questions!"
-                            : "Status: Guessing Active!";
-
-                    controls.innerHTML =
-                        '';
-
-                    askArea.style.display =
-                        state.tq_thinker_pid === myPid
-                            ? 'none'
-                            : 'block';
-                }
-
-
-                // -------------------------------------------------
-                // WON
-                // -------------------------------------------------
-
-                else if (
-                    state.tq_status ===
-                    'won'
-                ) {
-
-                    banner.innerText =
-                        "Status: Word Solved!";
-
-                    controls.innerHTML =
-                        `
-                        <button
-                            class="btn-success"
-                            id="tq-next-round-btn"
-                        >
-                            Next Round
-                        </button>
-                        `;
-
-                    askArea.style.display =
-                        'none';
-                }
-            }
-
-
-            // =================================================
-            // QUESTIONS
-            // =================================================
-
-            const qList =
-                document.getElementById(
-                    'tq-questions-list'
-                );
-
-            qList.innerHTML =
-                '';
-
-
-            state.tq_questions.forEach(
-                q => {
-
-                    const div =
-                        document.createElement(
-                            'div'
-                        );
-
-                    div.style.cssText =
-                        `
-                        margin-bottom:6px;
-                        padding:6px;
-                        background:#0f172a;
-                        border-radius:6px;
-                        border:1px solid #334155;
-                        `;
-
-
-                    // =================================================
-                    // ANSWER COLOURS
-                    // =================================================
-
-                    let ansHtml;
-
-                    if (!q.answer) {
-
-                        ansHtml =
-                            `
-                            <span
-                                style="
-                                    color:var(--accent-warn);
-                                    font-weight:bold;
-                                "
-                            >
-                                [PENDING]
-                            </span>
-                            `;
-
-                    } else {
-
-                        const answerColors = {
-
-                            "Yes":
-                                "var(--accent-success)",
-
-                            "No":
-                                "var(--accent-error)",
-
-                            "Maybe":
-                                "var(--accent-warn)",
-
-                            "Correct":
-                                "var(--accent-success)"
-                        };
-
-                        const answerColor =
-                            answerColors[q.answer]
-                            || "inherit";
-
-                        ansHtml =
-                            `
-                            <span
-                                style="
-                                    color:${answerColor};
-                                    font-weight:bold;
-                                    text-transform:uppercase;
-                                "
-                            >
-                                [${escapeHtml(q.answer)}]
-                            </span>
-                            `;
-                    }
-
-
-                    // =================================================
-                    // THINKER ANSWER BUTTONS
-                    // =================================================
-
-                    if (
-                        state.tq_thinker_pid ===
-                        myPid
-                        && !q.answer
-                    ) {
-
-                        ansHtml =
+                        answerHtml =
                             `
                             <button
                                 class="btn-success tq-answer-btn"
@@ -2003,824 +2308,1128 @@
                                 Correct!
                             </button>
                             `;
-                    }
 
+                    } else {
 
-                    div.innerHTML =
-                        `
-                        <strong>
-                            ${escapeHtml(q.name)}:
-                        </strong>
-
-                        ${escapeHtml(q.text)}
-
-                        &rarr;
-
-                        ${ansHtml}
-                        `;
-
-                    qList.appendChild(
-                        div
-                    );
-                }
-            );
-
-
-            // =================================================
-            // ATTACH DYNAMIC 20Q BUTTONS
-            // =================================================
-
-            const volunteerBtn =
-                document.getElementById(
-                    'tq-volunteer-btn'
-                );
-
-            if (volunteerBtn) {
-
-                volunteerBtn.addEventListener(
-                    'click',
-                    () => {
-                        tqActionReq(
-                            'become_thinker'
-                        );
-                    }
-                );
-            }
-
-
-            const setWordBtn =
-                document.getElementById(
-                    'tq-set-word-btn'
-                );
-
-            if (setWordBtn) {
-
-                setWordBtn.addEventListener(
-                    'click',
-                    tqSetWord
-                );
-            }
-
-
-            const nextRoundBtn =
-                document.getElementById(
-                    'tq-next-round-btn'
-                );
-
-            if (nextRoundBtn) {
-
-                nextRoundBtn.addEventListener(
-                    'click',
-                    () => {
-                        tqActionReq(
-                            'become_thinker'
-                        );
-                    }
-                );
-            }
-
-
-            document
-                .querySelectorAll(
-                    '.tq-answer-btn'
-                )
-                .forEach(
-                    button => {
-
-                        button.addEventListener(
-                            'click',
-                            () => {
-
-                                const qid =
-                                    Number(
-                                        button.dataset.qid
-                                    );
-
-                                const answer =
-                                    button.dataset.answer;
-
-                                tqAnswerQ(
-                                    qid,
-                                    answer
-                                );
-                            }
-                        );
-                    }
-                );
-        }
-
-
-        // =====================================================
-        // GAME SWITCH
-        // =====================================================
-
-        async function switchGameMode(
-            gt
-        ) {
-
-            const res =
-                await fetch(
-                    '/api/game_switch',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type':
-                                'application/json'
-                        },
-                        body: JSON.stringify({
-                            room: currentRoom,
-                            pid: myPid,
-                            game_type: gt
-                        })
-                    }
-                );
-
-            const data =
-                await res.json();
-
-            handleBroadcast(
-                data.state,
-                amHost
-            );
-        }
-
-
-        // =====================================================
-        // 20Q ACTION
-        // =====================================================
-
-        async function tqActionReq(
-            action
-        ) {
-
-            const res =
-                await fetch(
-                    '/api/tq_action',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type':
-                                'application/json'
-                        },
-                        body: JSON.stringify({
-                            room: currentRoom,
-                            pid: myPid,
-                            action
-                        })
-                    }
-                );
-
-            const data =
-                await res.json();
-
-            handleBroadcast(
-                data.state,
-                amHost
-            );
-        }
-
-
-        // =====================================================
-        // SET 20Q WORD
-        // =====================================================
-
-        async function tqSetWord() {
-
-            const input =
-                document.getElementById(
-                    'tq-secret-input'
-                );
-
-            const w =
-                input.value.trim();
-
-            if (!w) {
-                return;
-            }
-
-            const res =
-                await fetch(
-                    '/api/tq_action',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type':
-                                'application/json'
-                        },
-                        body: JSON.stringify({
-                            room: currentRoom,
-                            pid: myPid,
-                            action: 'set_word',
-                            word: w
-                        })
-                    }
-                );
-
-            const data =
-                await res.json();
-
-            handleBroadcast(
-                data.state,
-                amHost
-            );
-        }
-
-
-        // =====================================================
-        // ASK 20Q
-        // =====================================================
-
-        async function tqSubmitQuestion() {
-
-            const input =
-                document.getElementById(
-                    'tq-question-input'
-                );
-
-            const t =
-                input.value.trim();
-
-            if (!t) {
-                return;
-            }
-
-            input.value = '';
-
-            const res =
-                await fetch(
-                    '/api/tq_action',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type':
-                                'application/json'
-                        },
-                        body: JSON.stringify({
-                            room: currentRoom,
-                            pid: myPid,
-                            action: 'ask_question',
-                            text: t
-                        })
-                    }
-                );
-
-            const data =
-                await res.json();
-
-            handleBroadcast(
-                data.state,
-                amHost
-            );
-        }
-
-
-        // =====================================================
-        // ANSWER 20Q
-        // =====================================================
-
-        async function tqAnswerQ(
-            qid,
-            answer
-        ) {
-
-            const res =
-                await fetch(
-                    '/api/tq_action',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type':
-                                'application/json'
-                        },
-                        body: JSON.stringify({
-                            room: currentRoom,
-                            pid: myPid,
-                            action: 'answer_question',
-                            qid,
-                            answer
-                        })
-                    }
-                );
-
-            const data =
-                await res.json();
-
-            handleBroadcast(
-                data.state,
-                amHost
-            );
-        }
-
-
-        // =====================================================
-        // READY
-        // =====================================================
-
-        async function toggleReadyState() {
-
-            const res =
-                await fetch(
-                    '/api/ready',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type':
-                                'application/json'
-                        },
-                        body: JSON.stringify({
-                            room: currentRoom,
-                            pid: myPid
-                        })
-                    }
-                );
-
-            const data =
-                await res.json();
-
-            handleBroadcast(
-                data.state,
-                amHost
-            );
-        }
-
-
-        // =====================================================
-        // HOST TIMER
-        // =====================================================
-
-        async function controlTimer(
-            action
-        ) {
-
-            const res =
-                await fetch(
-                    '/api/control',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type':
-                                'application/json'
-                        },
-                        body: JSON.stringify({
-                            room: currentRoom,
-                            pid: myPid,
-                            action
-                        })
-                    }
-                );
-
-            const data =
-                await res.json();
-
-            handleBroadcast(
-                data.state,
-                amHost
-            );
-        }
-
-
-        // =====================================================
-        // UPDATE LIMIT
-        // =====================================================
-
-        async function updateLimit() {
-
-            const val =
-                document
-                    .getElementById(
-                        'limit-input'
-                    )
-                    .value;
-
-            const res =
-                await fetch(
-                    '/api/control',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type':
-                                'application/json'
-                        },
-                        body: JSON.stringify({
-                            room: currentRoom,
-                            pid: myPid,
-                            action: 'limit',
-                            limit: val
-                        })
-                    }
-                );
-
-            launchToast(
-                `Limit set to ${val}s!`
-            );
-
-            const data =
-                await res.json();
-
-            handleBroadcast(
-                data.state,
-                amHost
-            );
-        }
-
-
-        // =====================================================
-        // CHAT
-        // =====================================================
-
-        async function sendChatMessage(
-            e
-        ) {
-
-            e.preventDefault();
-
-            const input =
-                document.getElementById(
-                    'chat-input'
-                );
-
-            const msg =
-                input.value.trim();
-
-            if (!msg) {
-                return;
-            }
-
-            input.value = '';
-
-            const res =
-                await fetch(
-                    '/api/chat',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type':
-                                'application/json'
-                        },
-                        body: JSON.stringify({
-                            room: currentRoom,
-                            pid: myPid,
-                            msg,
-                            last_chat_id:
-                                localChatCounter
-                        })
-                    }
-                );
-
-            const data =
-                await res.json();
-
-            handleBroadcast(
-                data.state,
-                amHost
-            );
-        }
-
-
-        // =====================================================
-        // CHAT RENDER
-        // =====================================================
-
-        function appendIncrementalChats(
-            newChatsList
-        ) {
-
-            if (
-                !newChatsList
-                || !newChatsList.length
-            ) {
-                return;
-            }
-
-            const box =
-                document.getElementById(
-                    'chat-stream-box'
-                );
-
-            newChatsList.forEach(
-                c => {
-
-                    if (
-                        c.id >
-                        localChatCounter
-                    ) {
-
-                        localChatCounter =
-                            c.id;
-
-                        const row =
-                            document.createElement(
-                                'div'
-                            );
-
-                        row.className =
-                            'chat-row';
-
-                        row.innerHTML =
+                        answerHtml =
                             `
-                            <span class="chat-name">
-                                ${escapeHtml(c.name)}:
-                            </span>
-
-                            <span>
-                                ${escapeHtml(c.msg)}
+                            <span
+                                style="
+                                    color:var(--accent-warn);
+                                    font-weight:bold;
+                                "
+                            >
+                                [PENDING]
                             </span>
                             `;
-
-                        box.appendChild(
-                            row
-                        );
                     }
+
+                } else {
+
+                    const colours = {
+                        "Yes":
+                            "var(--accent-success)",
+                        "No":
+                            "var(--accent-error)",
+                        "Maybe":
+                            "var(--accent-warn)",
+                        "Correct":
+                            "var(--accent-success)"
+                    };
+
+                    answerHtml =
+                        `
+                        <span
+                            style="
+                                color:${
+                                    colours[q.answer]
+                                    || "inherit"
+                                };
+                                font-weight:bold;
+                                text-transform:uppercase;
+                            "
+                        >
+                            [${escapeHtml(q.answer)}]
+                        </span>
+                        `;
                 }
-            );
 
-            box.scrollTop =
-                box.scrollHeight;
-        }
+                div.innerHTML =
+                    `
+                    <strong>
+                        ${escapeHtml(q.name)}:
+                    </strong>
 
+                    ${escapeHtml(q.text)}
 
-        // =====================================================
-        // TOAST
-        // =====================================================
+                    &rarr;
 
-        function launchToast(
-            msg
-        ) {
+                    ${answerHtml}
+                    `;
 
-            const t =
-                document.getElementById(
-                    'notification-toast'
+                qList.appendChild(
+                    div
                 );
-
-            t.innerText =
-                msg;
-
-            t.style.opacity =
-                '1';
-
-            t.style.pointerEvents =
-                'auto';
-
-            setTimeout(
-                () => {
-
-                    t.style.opacity =
-                        '0';
-
-                    t.style.pointerEvents =
-                        'none';
-
-                },
-                2000
-            );
-        }
+            }
+        );
 
 
-        // =====================================================
-        // TIMER DISPLAY
-        // =====================================================
+        document
+            .querySelectorAll(
+                ".tq-answer-btn"
+            )
+            .forEach(
+                button => {
 
-        function updateTimerDisplay(
-            s
-        ) {
+                    button.addEventListener(
+                        "click",
+                        () => {
 
-            document
-                .getElementById(
-                    'timer-display'
-                )
-                .innerText =
-                    `00:${String(s).padStart(2, '0')}`;
-        }
-
-
-        // =====================================================
-        // LETTER RENDER
-        // =====================================================
-
-        function renderLetters(
-            l
-        ) {
-
-            const t =
-                document.getElementById(
-                    'letter-tray'
-                );
-
-            t.innerHTML =
-                '';
-
-            l.forEach(
-                x => {
-
-                    const e =
-                        document.createElement(
-                            'div'
-                        );
-
-                    e.className =
-                        'letter-tile';
-
-                    e.innerText =
-                        x;
-
-                    t.appendChild(
-                        e
+                            tqAnswerQ(
+                                Number(
+                                    button.dataset.qid
+                                ),
+                                button.dataset.answer
+                            );
+                        }
                     );
                 }
             );
+    }
+
+
+    async function tqActionReq(
+        action
+    ) {
+
+        const res =
+            await fetch(
+                "/api/tq_action",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        room: currentRoom,
+                        pid: myPid,
+                        action
+                    })
+                }
+            );
+
+        const data =
+            await res.json();
+
+        handleBroadcast(
+            data.state,
+            amHost
+        );
+    }
+
+
+    async function tqSetWord() {
+
+        const input =
+            document.getElementById(
+                "tq-secret-input"
+            );
+
+        const word =
+            input.value.trim();
+
+        if (!word) {
+            return;
+        }
+
+        const res =
+            await fetch(
+                "/api/tq_action",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        room: currentRoom,
+                        pid: myPid,
+                        action: "set_word",
+                        word
+                    })
+                }
+            );
+
+        const data =
+            await res.json();
+
+        handleBroadcast(
+            data.state,
+            amHost
+        );
+    }
+
+
+    async function tqSubmitQuestion() {
+
+        const input =
+            document.getElementById(
+                "tq-question-input"
+            );
+
+        const text =
+            input.value.trim();
+
+        if (!text) {
+            return;
+        }
+
+        input.value = "";
+
+        const res =
+            await fetch(
+                "/api/tq_action",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        room: currentRoom,
+                        pid: myPid,
+                        action: "ask_question",
+                        text
+                    })
+                }
+            );
+
+        const data =
+            await res.json();
+
+        handleBroadcast(
+            data.state,
+            amHost
+        );
+    }
+
+
+    async function tqAnswerQ(
+        qid,
+        answer
+    ) {
+
+        const res =
+            await fetch(
+                "/api/tq_action",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        room: currentRoom,
+                        pid: myPid,
+                        action: "answer_question",
+                        qid,
+                        answer
+                    })
+                }
+            );
+
+        const data =
+            await res.json();
+
+        handleBroadcast(
+            data.state,
+            amHost
+        );
+    }
+
+
+    // =========================================================
+    // BLACKJACK
+    // =========================================================
+
+    function renderCard(
+        card
+    ) {
+
+        if (
+            !card
+            || card.rank === "?"
+        ) {
+
+            return `
+                <div class="playing-card hidden-card">
+                    ?
+                </div>
+            `;
+        }
+
+        const red =
+            card.suit === "♥"
+            || card.suit === "♦";
+
+        return `
+            <div
+                class="playing-card ${red ? "red" : ""}"
+            >
+
+                <div>
+                    ${escapeHtml(card.rank)}
+                    ${escapeHtml(card.suit)}
+                </div>
+
+                <div
+                    style="
+                        text-align:center;
+                        font-size:1.5rem;
+                    "
+                >
+                    ${escapeHtml(card.suit)}
+                </div>
+
+                <div class="card-corner-bottom">
+                    ${escapeHtml(card.rank)}
+                    ${escapeHtml(card.suit)}
+                </div>
+
+            </div>
+        `;
+    }
+
+
+    function handleBlackjackBroadcast(
+        state
+    ) {
+
+        const bj =
+            state.blackjack;
+
+        if (!bj) {
+            return;
+        }
+
+        const dealerHand =
+            document.getElementById(
+                "bj-dealer-hand"
+            );
+
+        const playerHand =
+            document.getElementById(
+                "bj-player-hand"
+            );
+
+        const dealerValue =
+            document.getElementById(
+                "bj-dealer-value"
+            );
+
+        const playerValue =
+            document.getElementById(
+                "bj-player-value"
+            );
+
+        const result =
+            document.getElementById(
+                "bj-result"
+            );
+
+        const statusText =
+            document.getElementById(
+                "bj-status-text"
+            );
+
+        const hitBtn =
+            document.getElementById(
+                "bj-hit-btn"
+            );
+
+        const standBtn =
+            document.getElementById(
+                "bj-stand-btn"
+            );
+
+        const nextBtn =
+            document.getElementById(
+                "bj-next-round-btn"
+            );
+
+
+        // -----------------------------------------------------
+        // DEALER
+        // -----------------------------------------------------
+
+        dealerHand.innerHTML = "";
+
+        if (
+            !bj.dealer_hand
+            || bj.dealer_hand.length === 0
+        ) {
+
+            dealerHand.innerHTML =
+                `
+                <div class="bj-empty">
+                    Waiting for deal...
+                </div>
+                `;
+
+        } else {
+
+            bj.dealer_hand.forEach(
+                card => {
+
+                    dealerHand.innerHTML +=
+                        renderCard(card);
+                }
+            );
         }
 
 
-        // =====================================================
-        // SHUFFLE
-        // =====================================================
+        if (
+            bj.dealer_value !== null
+            && bj.dealer_value !== undefined
+        ) {
 
-        function shuffleTray() {
+            dealerValue.innerText =
+                `Value: ${bj.dealer_value}`;
+
+        } else if (
+            bj.status === "playing"
+        ) {
+
+            dealerValue.innerText =
+                "One card hidden";
+
+        } else {
+
+            dealerValue.innerText = "";
+        }
+
+
+        // -----------------------------------------------------
+        // PLAYER
+        // -----------------------------------------------------
+
+        playerHand.innerHTML = "";
+
+        if (
+            !bj.your_hand
+            || bj.your_hand.length === 0
+        ) {
+
+            playerHand.innerHTML =
+                `
+                <div class="bj-empty">
+                    Waiting for cards...
+                </div>
+                `;
+
+        } else {
+
+            bj.your_hand.forEach(
+                card => {
+
+                    playerHand.innerHTML +=
+                        renderCard(card);
+                }
+            );
+        }
+
+        playerValue.innerText =
+            bj.your_hand.length
+                ? `Value: ${bj.your_value}`
+                : "";
+
+
+        // -----------------------------------------------------
+        // BUTTONS
+        // -----------------------------------------------------
+
+        hitBtn.disabled =
+            !bj.can_hit;
+
+        standBtn.disabled =
+            !bj.can_stand;
+
+        nextBtn.style.display =
+            (
+                bj.status === "finished"
+                && amHost
+            )
+                ? "inline-block"
+                : "none";
+
+
+        // -----------------------------------------------------
+        // RESULT
+        // -----------------------------------------------------
+
+        result.innerText = "";
+
+        if (bj.your_result) {
+
+            const resultMap = {
+                "blackjack": [
+                    "BLACKJACK! +15",
+                    "var(--accent-success)"
+                ],
+
+                "win": [
+                    "YOU WIN! +10",
+                    "var(--accent-success)"
+                ],
+
+                "push": [
+                    "PUSH! +5",
+                    "var(--accent-warn)"
+                ],
+
+                "lose": [
+                    "YOU LOSE",
+                    "var(--accent-error)"
+                ]
+            };
+
+            const display =
+                resultMap[
+                    bj.your_result
+                ];
+
+            if (display) {
+
+                result.innerText =
+                    display[0];
+
+                result.style.color =
+                    display[1];
+            }
+        }
+
+
+        // -----------------------------------------------------
+        // STATUS
+        // -----------------------------------------------------
+
+        if (
+            bj.status === "playing"
+        ) {
 
             if (
-                localLetters.includes("?")
+                bj.your_status ===
+                "playing"
             ) {
-                return;
+
+                statusText.innerText =
+                    "Your turn — Hit or Stand";
+
+            } else if (
+                bj.your_status ===
+                "blackjack"
+            ) {
+
+                statusText.innerText =
+                    "Blackjack! Waiting for other players...";
+
+            } else if (
+                bj.your_status ===
+                "stand"
+            ) {
+
+                statusText.innerText =
+                    "Standing — waiting for other players...";
+
+            } else if (
+                bj.your_status ===
+                "bust"
+            ) {
+
+                statusText.innerText =
+                    "Bust! Waiting for other players...";
+
+            } else {
+
+                statusText.innerText =
+                    "Round in progress...";
             }
 
-            localLetters.sort(
-                () => Math.random() - 0.5
-            );
-
-            renderLetters(
-                localLetters
-            );
-        }
-
-
-        // =====================================================
-        // HTML ESCAPING
-        // =====================================================
-
-        function escapeHtml(
-            s
+        } else if (
+            bj.status === "dealer"
         ) {
 
-            return String(s ?? '')
-                .replace(
-                    /&/g,
-                    "&amp;"
-                )
-                .replace(
-                    /</g,
-                    "&lt;"
-                )
-                .replace(
-                    />/g,
-                    "&gt;"
-                )
-                .replace(
-                    /"/g,
-                    "&quot;"
-                )
-                .replace(
-                    /'/g,
-                    "&#039;"
-                );
+            statusText.innerText =
+                "Dealer is playing...";
+
+        } else if (
+            bj.status === "finished"
+        ) {
+
+            statusText.innerText =
+                amHost
+                    ? "Round finished — start the next round."
+                    : "Round finished — waiting for host.";
+
+        } else {
+
+            statusText.innerText =
+                "Waiting for game...";
         }
 
 
-        // =====================================================
-        // EVENT LISTENERS
-        // =====================================================
+        // -----------------------------------------------------
+        // OTHER PLAYERS
+        // -----------------------------------------------------
 
-        document
-            .getElementById(
-                'enter-lounge-btn'
-            )
-            .addEventListener(
-                'click',
-                connectToLobby
+        const playerList =
+            document.getElementById(
+                "bj-player-list"
             );
 
+        playerList.innerHTML = "";
 
-        document
-            .getElementById(
-                'game-select-dropdown'
-            )
-            .addEventListener(
-                'change',
-                function () {
+        if (
+            !bj.players
+            || bj.players.length === 0
+        ) {
 
-                    switchGameMode(
-                        this.value
+            playerList.innerHTML =
+                `
+                <div class="bj-empty">
+                    No players yet.
+                </div>
+                `;
+
+        } else {
+
+            bj.players.forEach(
+                player => {
+
+                    const row =
+                        document.createElement(
+                            "div"
+                        );
+
+                    row.className =
+                        "bj-player-row";
+
+                    let status =
+                        player.status
+                        || "waiting";
+
+                    if (
+                        player.result
+                    ) {
+                        status =
+                            player.result;
+                    }
+
+                    row.innerHTML =
+                        `
+                        <span>
+                            ${escapeHtml(player.name)}
+                            ${
+                                player.sid === myPid
+                                    ? " (You)"
+                                    : ""
+                            }
+                        </span>
+
+                        <span>
+                            ${player.cards} cards
+
+                            <span
+                                class="bj-status-pill"
+                            >
+                                ${escapeHtml(status)}
+                            </span>
+                        </span>
+                        `;
+
+                    playerList.appendChild(
+                        row
                     );
                 }
             );
+        }
+    }
 
 
-        document
-            .getElementById(
-                'guess-form'
-            )
-            .addEventListener(
-                'submit',
-                submitWordLocal
-            );
+    async function blackjackAction(
+        action
+    ) {
 
-
-        document
-            .getElementById(
-                'shuffle-btn'
-            )
-            .addEventListener(
-                'click',
-                shuffleTray
-            );
-
-
-        document
-            .getElementById(
-                'ready-toggle-btn'
-            )
-            .addEventListener(
-                'click',
-                toggleReadyState
-            );
-
-
-        document
-            .getElementById(
-                'pause-btn'
-            )
-            .addEventListener(
-                'click',
-                () => {
-                    controlTimer('pause');
+        const res =
+            await fetch(
+                "/api/blackjack_action",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        room: currentRoom,
+                        pid: myPid,
+                        action
+                    })
                 }
             );
 
+        const data =
+            await res.json();
 
-        document
-            .getElementById(
-                'limit-btn'
-            )
-            .addEventListener(
-                'click',
-                updateLimit
+        if (
+            data.message
+        ) {
+
+            launchToast(
+                data.message
+            );
+        }
+
+        if (data.state) {
+
+            handleBroadcast(
+                data.state,
+                amHost
+            );
+        }
+    }
+
+
+    // =========================================================
+    // CHAT
+    // =========================================================
+
+    async function sendChatMessage(
+        event
+    ) {
+
+        event.preventDefault();
+
+        const input =
+            document.getElementById(
+                "chat-input"
             );
 
+        const msg =
+            input.value.trim();
 
-        document
-            .getElementById(
-                'skip-btn'
-            )
-            .addEventListener(
-                'click',
-                () => {
-                    controlTimer('skip');
+        if (!msg) {
+            return;
+        }
+
+        input.value = "";
+
+        const res =
+            await fetch(
+                "/api/chat",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        room: currentRoom,
+                        pid: myPid,
+                        msg,
+                        last_chat_id:
+                            localChatCounter
+                    })
                 }
             );
 
+        const data =
+            await res.json();
 
-        document
-            .getElementById(
-                'chat-form'
-            )
-            .addEventListener(
-                'submit',
-                sendChatMessage
+        handleBroadcast(
+            data.state,
+            amHost
+        );
+    }
+
+
+    // =========================================================
+    // CHAT RENDER
+    // =========================================================
+
+    function appendIncrementalChats(
+        chats
+    ) {
+
+        if (
+            !chats
+            || !chats.length
+        ) {
+            return;
+        }
+
+        const box =
+            document.getElementById(
+                "chat-stream-box"
             );
 
+        chats.forEach(
+            chat => {
 
-        document
-            .getElementById(
-                'tq-ask-btn'
-            )
-            .addEventListener(
-                'click',
-                tqSubmitQuestion
-            );
-
-
-        // Allow Enter in username field
-        // to join the game.
-
-        document
-            .getElementById(
-                'username-input'
-            )
-            .addEventListener(
-                'keydown',
-                event => {
-
-                    if (
-                        event.key ===
-                        'Enter'
-                    ) {
-
-                        connectToLobby();
-                    }
+                if (
+                    chat.id <=
+                    localChatCounter
+                ) {
+                    return;
                 }
+
+                localChatCounter =
+                    chat.id;
+
+                const row =
+                    document.createElement(
+                        "div"
+                    );
+
+                row.className =
+                    "chat-row";
+
+                row.innerHTML =
+                    `
+                    <span class="chat-name">
+                        ${escapeHtml(chat.name)}:
+                    </span>
+
+                    <span>
+                        ${escapeHtml(chat.msg)}
+                    </span>
+                    `;
+
+                box.appendChild(
+                    row
+                );
+            }
+        );
+
+        box.scrollTop =
+            box.scrollHeight;
+    }
+
+
+    // =========================================================
+    // TOAST
+    // =========================================================
+
+    function launchToast(
+        message
+    ) {
+
+        const toast =
+            document.getElementById(
+                "notification-toast"
             );
 
-    </script>
+        toast.innerText =
+            message;
+
+        toast.style.opacity =
+            "1";
+
+        toast.style.pointerEvents =
+            "auto";
+
+        setTimeout(
+            () => {
+
+                toast.style.opacity =
+                    "0";
+
+                toast.style.pointerEvents =
+                    "none";
+
+            },
+            2000
+        );
+    }
+
+
+    // =========================================================
+    // ANAGRAM TIMER
+    // =========================================================
+
+    function updateTimerDisplay(
+        seconds
+    ) {
+
+        document
+            .getElementById(
+                "timer-display"
+            )
+            .innerText =
+                `00:${String(seconds).padStart(2, "0")}`;
+    }
+
+
+    // =========================================================
+    // LETTER RENDER
+    // =========================================================
+
+    function renderLetters(
+        letters
+    ) {
+
+        const tray =
+            document.getElementById(
+                "letter-tray"
+            );
+
+        tray.innerHTML = "";
+
+        letters.forEach(
+            letter => {
+
+                const tile =
+                    document.createElement(
+                        "div"
+                    );
+
+                tile.className =
+                    "letter-tile";
+
+                tile.innerText =
+                    letter;
+
+                tray.appendChild(
+                    tile
+                );
+            }
+        );
+    }
+
+
+    // =========================================================
+    // SHUFFLE
+    // =========================================================
+
+    function shuffleTray() {
+
+        if (
+            localLetters.includes("?")
+        ) {
+            return;
+        }
+
+        localLetters.sort(
+            () => Math.random() - 0.5
+        );
+
+        renderLetters(
+            localLetters
+        );
+    }
+
+
+    // =========================================================
+    // HTML ESCAPING
+    // =========================================================
+
+    function escapeHtml(
+        value
+    ) {
+
+        return String(
+            value ?? ""
+        )
+            .replace(
+                /&/g,
+                "&amp;"
+            )
+            .replace(
+                /</g,
+                "&lt;"
+            )
+            .replace(
+                />/g,
+                "&gt;"
+            )
+            .replace(
+                /"/g,
+                "&quot;"
+            )
+            .replace(
+                /'/g,
+                "&#039;"
+            );
+    }
+
+
+    // =========================================================
+    // EVENT LISTENERS
+    // =========================================================
+
+    document
+        .getElementById(
+            "enter-lounge-btn"
+        )
+        .addEventListener(
+            "click",
+            connectToLobby
+        );
+
+
+    document
+        .getElementById(
+            "game-select-dropdown"
+        )
+        .addEventListener(
+            "change",
+            function () {
+
+                switchGameMode(
+                    this.value
+                );
+            }
+        );
+
+
+    document
+        .getElementById(
+            "guess-form"
+        )
+        .addEventListener(
+            "submit",
+            submitWordLocal
+        );
+
+
+    document
+        .getElementById(
+            "shuffle-btn"
+        )
+        .addEventListener(
+            "click",
+            shuffleTray
+        );
+
+
+    document
+        .getElementById(
+            "ready-toggle-btn"
+        )
+        .addEventListener(
+            "click",
+            toggleReadyState
+        );
+
+
+    document
+        .getElementById(
+            "pause-btn"
+        )
+        .addEventListener(
+            "click",
+            () => {
+                controlTimer("pause");
+            }
+        );
+
+
+    document
+        .getElementById(
+            "limit-btn"
+        )
+        .addEventListener(
+            "click",
+            updateLimit
+        );
+
+
+    document
+        .getElementById(
+            "skip-btn"
+        )
+        .addEventListener(
+            "click",
+            () => {
+                controlTimer("skip");
+            }
+        );
+
+
+    document
+        .getElementById(
+            "chat-form"
+        )
+        .addEventListener(
+            "submit",
+            sendChatMessage
+        );
+
+
+    document
+        .getElementById(
+            "tq-ask-btn"
+        )
+        .addEventListener(
+            "click",
+            tqSubmitQuestion
+        );
+
+
+    document
+        .getElementById(
+            "bj-hit-btn"
+        )
+        .addEventListener(
+            "click",
+            () => {
+                blackjackAction("hit");
+            }
+        );
+
+
+    document
+        .getElementById(
+            "bj-stand-btn"
+        )
+        .addEventListener(
+            "click",
+            () => {
+                blackjackAction("stand");
+            }
+        );
+
+
+    document
+        .getElementById(
+            "bj-next-round-btn"
+        )
+        .addEventListener(
+            "click",
+            () => {
+                blackjackAction("new_round");
+            }
+        );
+
+
+    document
+        .getElementById(
+            "username-input"
+        )
+        .addEventListener(
+            "keydown",
+            event => {
+
+                if (
+                    event.key === "Enter"
+                ) {
+
+                    connectToLobby();
+                }
+            }
+        );
+
+</script>
 
 </body>
-
 </html>
