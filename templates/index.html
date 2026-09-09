@@ -25,7 +25,7 @@ async function impAction(a,b={}){let d=await api("/api/imposter_action",{room,pi
 function poker(s){
  let p=s.poker;
  if(p.phase==="waiting"){
-  $("pokerbox").innerHTML=`<h2>Texas Hold'em</h2><p>At least 2 players are required.</p>${host&&p.players?.length>=2?'<button class="b" id="startp">Start hand</button>':''}`;
+  $("pokerbox").innerHTML=`<h2>Texas Hold'em</h2><p>2 players are enough to start a heads-up game. Add more players for a full table.</p>${host&&p.players?.length>=2?'<button class="b" id="startp">Start hand</button>':''}`;
   $("startp")?.addEventListener("click",()=>pAction("start"));return;
  }
  let h=`<div class="poker"><div class="pot">Pot: ${p.pot} chips</div><div class="cards community">${cards(p.community)}</div><p class="status">${p.phase.toUpperCase()} ${p.current===pid?"— YOUR TURN":""}</p><div class="cards">${cards(p.your_hand)}</div><p class="status">Your chips: ${p.your_chips} | Current bet: ${p.your_bet}</p>`;
