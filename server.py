@@ -105,15 +105,41 @@ class Room:
 
     def start_poker(self):
         ids=list(self.players)
-        if len(ids)<2:self.poker={"phase":"waiting","dealer":-1,"current":None,"deck":[]};return
-        for p in self.players.values():p["chips"]=p.get("chips",1000) or 1000
-        old=self.poker.get("dealer",-1) if self.poker else -1
-        po={"phase":"preflop","dealer":(old+1)%len(ids),"current":None,"deck":deck(),"community":[],"pot":0,"bet":0,"minraise":20,"folded":set(),"allin":set(),"acted":set(),"results":{}}
-        random.shuffle(po["deck"]);self.poker=po
-        for p in self.players.values():p["pocket"]=[po["deck"].pop(),po["deck"].pop()];p["pbet"]=0;p["pstatus"]="playing"
-        sb=(po["dealer"]+1)%len(ids);bb=(po["dealer"]+2)%len(ids) if len(ids)>2 else (po["dealer"]+1)%len(ids)
-        self.take_bet(ids[sb],10);self.take_bet(ids[bb],20);po["bet"]=max(p["pbet"] for p in self.players.values())
-        po["current"]=po["dealer"] if len(ids)==2 else self.next_active(ids,bb);self.check_poker()
+        if len(ids)<2:
+            self.poker={"phase":"waiting","dealer":None,"current":None,"deck":[],"community":[],"pot":0,"results":{}}
+            return
+        for p in self.players.values():
+            p["chips"]=p.get("chips",1000) or 1000
+        old=self.poker.get("dealer") if self.poker else None
+        if old in ids:
+            dealer=ids[(ids.index(old)+1)%len(ids)]
+        else:
+            dealer=ids[0]
+        po={"phase":"preflop","dealer":dealer,"current":None,"deck":deck(),"community":[],"pot":0,"bet":0,"minraise":20,"folded":set(),"allin":set(),"acted":set(),"results":{}}
+        random.shuffle(po["deck"])
+        self.poker=po
+        for p in self.players.values():
+            p["pocket"]=[po["deck"].pop(),po["deck"].pop()]
+            p["pbet"]=0
+            p["pstatus"]="playing"
+        if len(ids)==2:
+            # Heads-up: dealer posts the small blind, the other player posts big blind,
+            # and the dealer/small blind acts first pre-flop. Post-flop the big blind acts second.
+            sb=dealer
+            bb=ids[1] if ids[0]==dealer else ids[0]
+            self.take_bet(sb,10)
+            self.take_bet(bb,20)
+            po["bet"]=20
+            po["current"]=sb
+        else:
+            di=ids.index(dealer)
+            sb=ids[(di+1)%len(ids)]
+            bb=ids[(di+2)%len(ids)]
+            self.take_bet(sb,10)
+            self.take_bet(bb,20)
+            po["bet"]=20
+            po["current"]=self.next_active(ids,bb)
+        self.check_poker()
 
     def take_bet(self,pid,n):
         p=self.players[pid];n=max(0,min(int(n),p["chips"]));p["chips"]-=n;p["pbet"]+=n;self.poker["pot"]+=n
