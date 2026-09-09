@@ -19,6 +19,8 @@ def value(h):
     while a and v+10<=21:v+=10;a-=1
     return v
 
+POKER_NAMES={0:"High Card",1:"One Pair",2:"Two Pair",3:"Three of a Kind",4:"Straight",5:"Flush",6:"Full House",7:"Four of a Kind",8:"Straight Flush"}
+
 def poker_eval(cs):
     vals=sorted((RV[c["rank"]] for c in cs),reverse=True);cnt=Counter(vals);u=sorted(set(vals),reverse=True)
     if 14 in u:u.append(1)
@@ -104,41 +106,27 @@ class Room:
         self.resolve_bj();return ""
 
     def start_poker(self):
-        ids=list(self.players)
+        ids=[i for i,p in self.players.items() if p.get("chips",1000)>0]
         if len(ids)<2:
-            self.poker={"phase":"waiting","dealer":None,"current":None,"deck":[],"community":[],"pot":0,"results":{}}
+            self.poker={"phase":"waiting","dealer":-1,"dealer_pid":None,"current":None,"deck":[],"community":[],"pot":0,"results":{}}
             return
         for p in self.players.values():
-            p["chips"]=p.get("chips",1000) or 1000
-        old=self.poker.get("dealer") if self.poker else None
-        if old in ids:
-            dealer=ids[(ids.index(old)+1)%len(ids)]
-        else:
-            dealer=ids[0]
-        po={"phase":"preflop","dealer":dealer,"current":None,"deck":deck(),"community":[],"pot":0,"bet":0,"minraise":20,"folded":set(),"allin":set(),"acted":set(),"results":{}}
-        random.shuffle(po["deck"])
-        self.poker=po
-        for p in self.players.values():
-            p["pocket"]=[po["deck"].pop(),po["deck"].pop()]
-            p["pbet"]=0
-            p["pstatus"]="playing"
+            if "chips" not in p:p["chips"]=1000
+        old_pid=self.poker.get("dealer_pid") if self.poker else None
+        if old_pid in ids: dealer=(ids.index(old_pid)+1)%len(ids)
+        else: dealer=0
+        po={"phase":"preflop","dealer":dealer,"dealer_pid":ids[dealer],"current":None,"deck":deck(),"community":[],"pot":0,"bet":0,"minraise":20,"folded":set(),"allin":set(),"acted":set(),"results":{},"hand_scores":{}}
+        random.shuffle(po["deck"]);self.poker=po
+        for i,p in self.players.items():
+            p["pbet"]=0;p["pstatus"]="out" if i not in ids else "playing"
+            p["pocket"]=[] if i not in ids else [po["deck"].pop(),po["deck"].pop()]
         if len(ids)==2:
-            # Heads-up: dealer posts the small blind, the other player posts big blind,
-            # and the dealer/small blind acts first pre-flop. Post-flop the big blind acts second.
-            sb=dealer
-            bb=ids[1] if ids[0]==dealer else ids[0]
-            self.take_bet(sb,10)
-            self.take_bet(bb,20)
-            po["bet"]=20
-            po["current"]=sb
+            sb=dealer;bb=(dealer+1)%2
+            first=sb
         else:
-            di=ids.index(dealer)
-            sb=ids[(di+1)%len(ids)]
-            bb=ids[(di+2)%len(ids)]
-            self.take_bet(sb,10)
-            self.take_bet(bb,20)
-            po["bet"]=20
-            po["current"]=self.next_active(ids,bb)
+            sb=(dealer+1)%len(ids);bb=(dealer+2)%len(ids);first=(bb+1)%len(ids)
+        self.take_bet(ids[sb],10);self.take_bet(ids[bb],20);po["bet"]=max(self.players[i]["pbet"] for i in ids)
+        po["current"]=ids[first]
         self.check_poker()
 
     def take_bet(self,pid,n):
@@ -205,13 +193,17 @@ class Room:
         if po["current"] is None:self.advance_poker()
 
     def showdown(self):
-        po=self.poker;active=[x for x in self.players if x not in po["folded"]]
-        scores={x:poker_eval(self.players[x]["pocket"]+po["community"]) for x in active};best=max(scores.values());wins=[x for x,v in scores.items() if v==best]
-        share=po["pot"]//len(wins);rem=po["pot"]%len(wins)
-        for i,w in enumerate(wins):self.players[w]["chips"]+=share+(i<rem);po["results"][w]="win"
+        po=self.poker;active=[x for x in self.players if x not in po["folded"] and self.players[x].get("pocket")]
+        scores={x:poker_eval(self.players[x]["pocket"]+po["community"]) for x in active}
+        if not scores:return
+        best=max(scores.values());wins=[x for x,v in scores.items() if v==best]
+        po["hand_scores"]={x:{"rank":v[0],"name":POKER_NAMES[v[0]],"score":list(v)} for x,v in scores.items()}
+        pot=po["pot"];share,rem=divmod(pot,len(wins))
+        for i,w in enumerate(wins):
+            self.players[w]["chips"]+=share+(1 if i<rem else 0);po["results"][w]="win"
         for x in active:
             if x not in wins:po["results"][x]="lose"
-        po["pot"]=0;po["phase"]="finished";po["current"]=None
+        po["winner_pot"]=pot;po["pot"]=0;po["phase"]="finished";po["current"]=None
 
     def imp_start(self):
         if len(self.players)<3:return False
@@ -293,7 +285,7 @@ class Room:
         s.update(tq_thinker_pid=self.tq.get("thinker"),tq_secret_word=self.tq.get("word") if self.tq.get("status")=="won" else ("???" if self.tq.get("word") else ""),tq_status=self.tq.get("status"),tq_questions=self.tq.get("questions",[]))
         s.update(imp_status=x.get("status"),imp_round_ready=len(self.players)>=3,imp_your_word=p.get("imp_word"),imp_current_turn=x.get("order",[])[x.get("turn",0)] if x.get("status")=="clues" and x.get("turn",0)<len(x.get("order",[])) else None,imp_clues=x.get("clues",[]),imp_players=[{"pid":i,"name":q["name"]} for i,q in self.players.items()],imp_votes=x.get("votes",{}) if x.get("status")=="result" else {},imp_result=x.get("result"),imp_is_imposter=pid==x.get("imp") if pid else False)
         s["blackjack"]={"status":b.get("status"),"dealer_hand":[b["dealer"][0],{"rank":"?","suit":"?"}] if b.get("status")=="playing" else b.get("dealer",[]),"dealer_value":value(b["dealer"]) if b.get("status")!="playing" and b.get("dealer") else None,"your_hand":p.get("bj_hand",[]),"your_value":value(p.get("bj_hand",[])) if p.get("bj_hand") else None,"your_status":p.get("bj_status"),"your_result":p.get("bj_result"),"can_hit":b.get("status")=="playing" and p.get("bj_status")=="playing","can_stand":b.get("status")=="playing" and p.get("bj_status")=="playing","players":[{"sid":i,"name":q["name"],"cards":len(q.get("bj_hand",[])),"status":q.get("bj_status","waiting"),"result":q.get("bj_result")} for i,q in self.players.items()]}
-        s["poker"]={"phase":po.get("phase"),"community":po.get("community",[]),"pot":po.get("pot",0),"current":po.get("current"),"bet":po.get("bet",0),"your_hand":p.get("pocket",[]),"your_chips":p.get("chips",1000),"your_bet":p.get("pbet",0),"can_act":po.get("current")==pid,"players":[{"pid":i,"name":q["name"],"chips":q.get("chips",1000),"bet":q.get("pbet",0),"status":"folded" if i in po.get("folded",set()) else ("all-in" if i in po.get("allin",set()) else ("turn" if i==po.get("current") else "playing"))} for i,q in self.players.items()],"results":po.get("results",{})}
+        s["poker"]={"phase":po.get("phase"),"community":po.get("community",[]),"pot":po.get("pot",0),"winner_pot":po.get("winner_pot",0),"current":po.get("current"),"dealer_pid":po.get("dealer_pid"),"bet":po.get("bet",0),"your_hand":p.get("pocket",[]),"your_chips":p.get("chips",1000),"your_bet":p.get("pbet",0),"can_act":po.get("current")==pid,"results":po.get("results",{}),"hand_scores":po.get("hand_scores",{}),"players":[{"pid":i,"name":q["name"],"chips":q.get("chips",1000),"bet":q.get("pbet",0),"status":"folded" if i in po.get("folded",set()) else ("all-in" if i in po.get("allin",set()) else ("out" if q.get("pstatus")=="out" else ("turn" if i==po.get("current") else "playing")))} for i,q in self.players.items()]}
         return s
 
 ROOMS={}
