@@ -1,1448 +1,286 @@
-import os
-import random
-import time
-import re
+import os,random,time,re
 from collections import Counter
-from flask import Flask, render_template, request, jsonify
-
-app = Flask(
-    __name__,
-    template_folder=os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "templates")
-    )
-)
-
-app.config["SECRET_KEY"] = os.urandom(24).hex()
-
-# ============================================================
-# DICTIONARY
-# ============================================================
-
-DICTIONARY_FILE = os.path.join(
-    os.path.dirname(__file__),
-    "dictionary_filtered.txt"
-)
-
-GLOBAL_DICTIONARY = set()
-
-if os.path.exists(DICTIONARY_FILE):
-    with open(DICTIONARY_FILE, "r", encoding="utf-8") as f:
-        GLOBAL_DICTIONARY = set(
-            line.strip().lower()
-            for line in f
-            if line.strip()
-        )
-
-VALID_BASE_WORDS = [
-    w for w in GLOBAL_DICTIONARY
-    if len(w) == 6
-]
-
-if not VALID_BASE_WORDS:
-    VALID_BASE_WORDS = [
-        "action",
-        "actors",
-        "advice",
-        "angels",
-        "artist",
-        "assets",
-        "backed",
-        "baking"
-    ]
-
-
-ROOMS = {}
-
-
-# ============================================================
-# CHAT MODERATION
-# ============================================================
-
-def moderate_text(text):
-    banned_words = [
-        r"crap",
-        r"sh+it",
-        r"f+u+c+k",
-        r"b+i+t+c+h",
-        r"a+s+s+h+o+l+e",
-        r"d+i+c+k"
-    ]
-
-    moderated = text
-
-    for pattern in banned_words:
-        moderated = re.sub(
-            pattern,
-            lambda m: "*" * len(m.group()),
-            moderated,
-            flags=re.IGNORECASE
-        )
-
-    return moderated
-
-
-# ============================================================
-# BLACKJACK HELPERS
-# ============================================================
-
-BLACKJACK_SUITS = ["♠", "♥", "♦", "♣"]
-BLACKJACK_RANKS = [
-    "2", "3", "4", "5", "6", "7", "8", "9",
-    "10", "J", "Q", "K", "A"
-]
-
-
-def create_blackjack_deck():
-    deck = []
-
-    for suit in BLACKJACK_SUITS:
-        for rank in BLACKJACK_RANKS:
-            deck.append({
-                "rank": rank,
-                "suit": suit
-            })
-
-    random.shuffle(deck)
-    return deck
-
-
-def blackjack_card_value(card):
-    rank = card["rank"]
-
-    if rank in ["J", "Q", "K"]:
-        return 10
-
-    if rank == "A":
-        return 11
-
-    return int(rank)
-
-
-def blackjack_hand_value(hand):
-    total = sum(
-        blackjack_card_value(card)
-        for card in hand
-    )
-
-    aces = sum(
-        1 for card in hand
-        if card["rank"] == "A"
-    )
-
-    while total > 21 and aces > 0:
-        total -= 10
-        aces -= 1
-
-    return total
-
-
-def blackjack_is_blackjack(hand):
-    return (
-        len(hand) == 2
-        and blackjack_hand_value(hand) == 21
-    )
-
-
-def blackjack_card_text(card):
-    return f"{card['rank']}{card['suit']}"
-
-
-# ============================================================
-# GAME ROOM
-# ============================================================
-
-class GameRoom:
-
-    def __init__(self, room_id):
-        self.room_id = room_id
-
-        # Game selection
-        self.game_type = "unselected"
-        self.game_locked = False
-
-        # Players
-        self.players = {}
-
-        # Chat
-        self.chat_history = []
-        self.chat_counter = 0
-
-        # ----------------------------------------------------
-        # ANAGRAM
-        # ----------------------------------------------------
-
-        self.base_word = ""
-        self.scrambled_letters = []
-        self.valid_anagrams = set()
-
-        self.time_limit = 60
-        self.time_left = 60
-        self.end_timestamp = 0
-
-        self.timer_active = False
-        self.countdown_active = False
-        self.countdown_end = 0
-
-        self.round_id = 0
-        self.last_breakdown = None
-
-        # ----------------------------------------------------
-        # 20 QUESTIONS
-        # ----------------------------------------------------
-
-        self.tq_thinker_pid = None
-        self.tq_secret_word = ""
-        self.tq_questions = []
-        self.tq_status = "waiting_thinker"
-        self.tq_question_counter = 0
-
-        # ----------------------------------------------------
-        # BLACKJACK
-        # ----------------------------------------------------
-
-        self.bj_deck = []
-        self.bj_dealer_hand = []
-        self.bj_status = "waiting"
-        self.bj_round_id = 0
-
-        self.generate_new_round()
-
-
-    # ========================================================
-    # GENERAL ROUND RESET
-    # ========================================================
-
-    def generate_new_round(self):
-
-        if self.game_type == "anagram":
-
-            self.base_word = random.choice(
-                VALID_BASE_WORDS
-            ).lower()
-
-            letters = list(self.base_word)
-
-            while "".join(letters) == self.base_word:
-                random.shuffle(letters)
-
-            self.scrambled_letters = letters
-            self.valid_anagrams = set()
-
-            base_counter = Counter(self.base_word)
-
-            for word in GLOBAL_DICTIONARY:
-
-                w_low = word.strip().lower()
-
-                if (
-                    3 <= len(w_low) <= 6
-                    and all(
-                        Counter(w_low)[c]
-                        <= base_counter[c]
-                        for c in w_low
-                    )
-                ):
-                    self.valid_anagrams.add(w_low)
-
-            self.timer_active = False
-            self.countdown_active = False
-            self.time_left = self.time_limit
-            self.end_timestamp = 0
-
-            self.round_id += 1
-
-        elif self.game_type == "twenty_questions":
-
-            self.tq_thinker_pid = None
-            self.tq_secret_word = ""
-            self.tq_questions = []
-            self.tq_status = "waiting_thinker"
-            self.tq_question_counter = 0
-
-            self.round_id += 1
-
-        elif self.game_type == "blackjack":
-
-            self.start_blackjack_round()
-
-        for player in self.players.values():
-            player["current_round_words"] = []
-            player["ready"] = False
-
-
-    # ========================================================
-    # BLACKJACK
-    # ========================================================
-
-    def start_blackjack_round(self):
-
-        self.bj_deck = create_blackjack_deck()
-        self.bj_dealer_hand = []
-
-        self.bj_round_id += 1
-
-        # Deal two cards to every player
-        active_players = [
-            p for p in self.players.values()
-        ]
-
-        for player in active_players:
-
-            player["bj_hand"] = []
-            player["bj_status"] = "playing"
-            player["bj_result"] = None
-
-        # Deal first player card
-        for player in active_players:
-            player["bj_hand"].append(
-                self.bj_deck.pop()
-            )
-
-        # Dealer first card
-        self.bj_dealer_hand.append(
-            self.bj_deck.pop()
-        )
-
-        # Deal second player card
-        for player in active_players:
-            player["bj_hand"].append(
-                self.bj_deck.pop()
-            )
-
-        # Dealer second card
-        self.bj_dealer_hand.append(
-            self.bj_deck.pop()
-        )
-
-        self.bj_status = "playing"
-
-        # Immediately resolve natural blackjacks
-        for player in active_players:
-
-            if blackjack_is_blackjack(
-                player["bj_hand"]
-            ):
-                player["bj_status"] = "blackjack"
-
-        self.check_blackjack_completion()
-
-
-    def active_blackjack_players(self):
-
-        return [
-            p for p in self.players.values()
-            if p.get("bj_status") == "playing"
-        ]
-
-
-    def check_blackjack_completion(self):
-
-        if self.bj_status != "playing":
-            return
-
-        active = self.active_blackjack_players()
-
-        # Everyone has either blackjack or finished
-        if not active:
-            self.finish_blackjack_round()
-
-
-    def blackjack_hit(self, pid):
-
-        if self.bj_status != "playing":
-            return False, "The round is not active."
-
-        player = self.players.get(pid)
-
-        if not player:
-            return False, "Player not found."
-
-        if player.get("bj_status") != "playing":
-            return False, "You cannot hit right now."
-
-        if not self.bj_deck:
-            return False, "The deck is empty."
-
-        player["bj_hand"].append(
-            self.bj_deck.pop()
-        )
-
-        value = blackjack_hand_value(
-            player["bj_hand"]
-        )
-
-        if value > 21:
-            player["bj_status"] = "bust"
-
-        elif value == 21:
-            player["bj_status"] = "stand"
-
-        self.check_blackjack_completion()
-
-        return True, None
-
-
-    def blackjack_stand(self, pid):
-
-        if self.bj_status != "playing":
-            return False, "The round is not active."
-
-        player = self.players.get(pid)
-
-        if not player:
-            return False, "Player not found."
-
-        if player.get("bj_status") != "playing":
-            return False, "You cannot stand right now."
-
-        player["bj_status"] = "stand"
-
-        self.check_blackjack_completion()
-
-        return True, None
-
-
-    def finish_blackjack_round(self):
-
-        if self.bj_status == "finished":
-            return
-
-        self.bj_status = "dealer"
-
-        # Dealer plays using standard casino rule:
-        # stand on 17 or higher.
-        while blackjack_hand_value(
-            self.bj_dealer_hand
-        ) < 17:
-
-            if not self.bj_deck:
-                break
-
-            self.bj_dealer_hand.append(
-                self.bj_deck.pop()
-            )
-
-        dealer_value = blackjack_hand_value(
-            self.bj_dealer_hand
-        )
-
-        dealer_blackjack = blackjack_is_blackjack(
-            self.bj_dealer_hand
-        )
-
-        for player in self.players.values():
-
-            status = player.get("bj_status")
-
-            if status == "blackjack":
-
-                if dealer_blackjack:
-                    player["bj_result"] = "push"
-                    player["score"] += 5
-                else:
-                    player["bj_result"] = "blackjack"
-                    player["score"] += 15
-
-                continue
-
-            player_value = blackjack_hand_value(
-                player.get("bj_hand", [])
-            )
-
-            if status == "bust":
-
-                player["bj_result"] = "lose"
-
-            elif dealer_value > 21:
-
-                player["bj_result"] = "win"
-                player["score"] += 10
-
-            elif player_value > dealer_value:
-
-                player["bj_result"] = "win"
-                player["score"] += 10
-
-            elif player_value == dealer_value:
-
-                player["bj_result"] = "push"
-                player["score"] += 5
-
-            else:
-
-                player["bj_result"] = "lose"
-
-        self.bj_status = "finished"
-
-
-    # ========================================================
-    # ANAGRAM SCORING
-    # ========================================================
-
-    def evaluate_round_conclusion(self, skipped=False):
-
-        if self.game_type != "anagram":
-            return
-
-        score_chart = {
-            3: 100,
-            4: 400,
-            5: 1200,
-            6: 2000
-        }
-
-        for pid, player in self.players.items():
-
-            unique_guesses = list(
-                dict.fromkeys(
-                    player.get(
-                        "current_round_words",
-                        []
-                    )
-                )
-            )
-
-            breakdown = []
-
-            round_score = player.get(
-                "score",
-                0
-            )
-
-            for guess in unique_guesses:
-
-                g_low = guess.strip().lower()
-
-                if g_low in self.valid_anagrams:
-
-                    pts = score_chart.get(
-                        len(g_low),
-                        0
-                    )
-
-                    round_score += pts
-
-                    breakdown.append({
-                        "word": g_low,
-                        "valid": True,
-                        "points": pts
-                    })
-
-                else:
-
-                    breakdown.append({
-                        "word": g_low,
-                        "valid": False,
-                        "points": 0
-                    })
-
-            player["score"] = round_score
-
-            player["last_breakdown"] = {
-                "breakdown": breakdown,
-                "round_word": self.base_word,
-                "skipped": skipped
-            }
-
-        self.generate_new_round()
-
-
-    # ========================================================
-    # ANAGRAM TIMER
-    # ========================================================
-
-    def check_timer(self):
-
-        if self.game_type != "anagram":
-            return False
-
-        if self.countdown_active:
-
-            if time.time() >= self.countdown_end:
-
-                self.countdown_active = False
-                self.timer_active = True
-
-                self.end_timestamp = (
-                    time.time()
-                    + self.time_left
-                )
-
-            return False
-
-        if self.timer_active:
-
-            self.time_left = int(
-                self.end_timestamp
-                - time.time()
-            )
-
-            if self.time_left <= 0:
-
-                self.evaluate_round_conclusion(
-                    skipped=False
-                )
-
-                return True
-
-        return False
-
-
-    def check_all_ready(self):
-
-        if (
-            not self.players
-            or self.game_type != "anagram"
-        ):
-            return False
-
-        if (
-            all(
-                p["ready"]
-                for p in self.players.values()
-            )
-            and not self.timer_active
-            and not self.countdown_active
-        ):
-
-            self.countdown_active = True
-
-            self.countdown_end = (
-                time.time() + 3
-            )
-
-            # Clear old submissions immediately
-            for p in self.players.values():
-                p["current_round_words"] = []
-
-            return True
-
-        return False
-
-
-    # ========================================================
-    # STATE
-    # ========================================================
-
-    def get_state(self, last_chat_id=0, pid=None):
-
-        now = time.time()
-
-        self.players = {
-            sid: p
-            for sid, p in self.players.items()
-            if now - p["last_seen"] < 10
-        }
-
-        new_chats = [
-            c
-            for c in self.chat_history
-            if c["id"] > last_chat_id
-        ]
-
-        # ----------------------------------------------------
-        # ANAGRAM STATE
-        # ----------------------------------------------------
-
-        reveal_letters = self.timer_active
-
-        letters_payload = (
-            self.scrambled_letters
-            if reveal_letters
-            else ["?"] * 6
-        )
-
-        display_time = (
-            max(
-                0,
-                int(
-                    self.countdown_end
-                    - time.time()
-                )
-            )
-            if self.countdown_active
-            else self.time_left
-        )
-
-        # ----------------------------------------------------
-        # BLACKJACK STATE
-        # ----------------------------------------------------
-
-        blackjack_state = {
-            "status": self.bj_status,
-            "round_id": self.bj_round_id,
-            "dealer_hand": [],
-            "dealer_value": None,
-            "your_hand": [],
-            "your_value": 0,
-            "your_status": None,
-            "your_result": None,
-            "players": [],
-            "can_hit": False,
-            "can_stand": False
-        }
-
-        if self.game_type == "blackjack":
-
-            # Only expose dealer's first card while active
-            if self.bj_status == "playing":
-
-                if self.bj_dealer_hand:
-
-                    blackjack_state[
-                        "dealer_hand"
-                    ] = [
-                        self.bj_dealer_hand[0]
-                    ]
-
-                    blackjack_state[
-                        "dealer_hand"
-                    ].append({
-                        "rank": "?",
-                        "suit": "?"
-                    })
-
-            else:
-
-                blackjack_state[
-                    "dealer_hand"
-                ] = list(
-                    self.bj_dealer_hand
-                )
-
-                blackjack_state[
-                    "dealer_value"
-                ] = blackjack_hand_value(
-                    self.bj_dealer_hand
-                )
-
-            if pid in self.players:
-
-                player = self.players[pid]
-
-                blackjack_state[
-                    "your_hand"
-                ] = player.get(
-                    "bj_hand",
-                    []
-                )
-
-                blackjack_state[
-                    "your_value"
-                ] = blackjack_hand_value(
-                    player.get(
-                        "bj_hand",
-                        []
-                    )
-                )
-
-                blackjack_state[
-                    "your_status"
-                ] = player.get(
-                    "bj_status"
-                )
-
-                blackjack_state[
-                    "your_result"
-                ] = player.get(
-                    "bj_result"
-                )
-
-                blackjack_state[
-                    "can_hit"
-                ] = (
-                    self.bj_status == "playing"
-                    and player.get(
-                        "bj_status"
-                    ) == "playing"
-                )
-
-                blackjack_state[
-                    "can_stand"
-                ] = (
-                    self.bj_status == "playing"
-                    and player.get(
-                        "bj_status"
-                    ) == "playing"
-                )
-
-            for sid, player in self.players.items():
-
-                blackjack_state[
-                    "players"
-                ].append({
-                    "sid": sid,
-                    "name": player["name"],
-                    "cards": len(
-                        player.get(
-                            "bj_hand",
-                            []
-                        )
-                    ),
-                    "status": player.get(
-                        "bj_status"
-                    ),
-                    "result": player.get(
-                        "bj_result"
-                    )
-                })
-
-        # ----------------------------------------------------
-        # LEADERBOARD
-        # ----------------------------------------------------
-
-        leaderboard = sorted(
-            [
-                {
-                    "sid": sid,
-                    "name": player["name"],
-                    "score": player["score"],
-                    "is_host": player["is_host"],
-                    "ready": player["ready"]
-                }
-                for sid, player
-                in self.players.items()
-            ],
-            key=lambda p: (
-                -p["score"],
-                p["name"].lower()
-            )
-        )
-
-        return {
-            "game_type": self.game_type,
-            "game_locked": self.game_locked,
-
-            "letters": letters_payload,
-            "time_left": display_time,
-            "timer_active": self.timer_active,
-            "countdown_active": self.countdown_active,
-            "round_id": self.round_id,
-
-            "new_chats": new_chats,
-
-            # 20 Questions
-            "tq_thinker_pid": self.tq_thinker_pid,
-            "tq_secret_word": (
-                self.tq_secret_word
-                if self.tq_status == "won"
-                else (
-                    "???"
-                    if self.tq_secret_word
-                    else ""
-                )
-            ),
-            "tq_status": self.tq_status,
-            "tq_questions": self.tq_questions,
-
-            # Blackjack
-            "blackjack": blackjack_state,
-
-            # Sorted standings
-            "leaderboard": leaderboard
-        }
-
-
-# ============================================================
-# INDEX
-# ============================================================
-
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-
-# ============================================================
-# JOIN
-# ============================================================
-
-@app.route("/api/join", methods=["POST"])
-def join_game():
-
-    data = request.json or {}
-
-    room_id = (
-        data.get("room", "lounge")
-        .strip()
-        or "lounge"
-    )
-
-    pid = (
-        data.get("pid")
-        or os.urandom(8).hex()
-    )
-
-    if room_id not in ROOMS:
-        ROOMS[room_id] = GameRoom(room_id)
-
-    room = ROOMS[room_id]
-
-    name = (
-        data.get("name", "User")
-        .strip()
-        or "User"
-    )
-
-    is_existing_player = pid in room.players
-
-    if is_existing_player:
-
-        player = room.players[pid]
-        player["name"] = name
-        player["last_seen"] = time.time()
-
-    else:
-
-        is_host = len(room.players) == 0
-
-        room.players[pid] = {
-            "name": name,
-            "score": 0,
-            "current_round_words": [],
-            "is_host": is_host,
-            "last_seen": time.time(),
-            "ready": False,
-            "last_breakdown": None,
-
-            # Blackjack
-            "bj_hand": [],
-            "bj_status": "waiting",
-            "bj_result": None
-        }
-
-    return jsonify({
-        "pid": pid,
-        "is_host": room.players[pid]["is_host"],
-        "state": room.get_state(
-            pid=pid
-        )
-    })
-
-
-# ============================================================
-# SYNC
-# ============================================================
-
-@app.route("/api/sync", methods=["POST"])
-def sync_game():
-
-    data = request.json or {}
-
-    room = ROOMS.get(
-        data.get("room")
-    )
-
-    pid = data.get("pid")
-
-    if (
-        not room
-        or pid not in room.players
-    ):
-        return jsonify({
-            "error": "Expired"
-        }), 404
-
-    player = room.players[pid]
-
-    player["last_seen"] = time.time()
-
-    # Anagram buffered words
-    if (
-        room.timer_active
-        and room.game_type == "anagram"
-    ):
-
-        raw_words = data.get(
-            "buffered_words",
-            []
-        )
-
-        player["current_round_words"] = [
-            str(w).strip().lower()
-            for w in raw_words
-        ]
-
-    room.check_timer()
-    room.check_all_ready()
-
-    breakdown_payload = player.get(
-        "last_breakdown"
-    )
-
-    if breakdown_payload:
-        player["last_breakdown"] = None
-
-    return jsonify({
-        "state": room.get_state(
-            int(
-                data.get(
-                    "last_chat_id",
-                    0
-                )
-            ),
-            pid=pid
-        ),
-        "breakdown": breakdown_payload,
-        "is_host": player["is_host"]
-    })
-
-
-# ============================================================
-# READY
-# ============================================================
-
-@app.route("/api/ready", methods=["POST"])
-def toggle_ready():
-
-    data = request.json or {}
-
-    room = ROOMS.get(
-        data.get("room")
-    )
-
-    pid = data.get("pid")
-
-    if (
-        room
-        and pid in room.players
-        and room.game_type == "anagram"
-    ):
-
-        room.players[pid]["ready"] = not (
-            room.players[pid]["ready"]
-        )
-
-        room.check_all_ready()
-
-    return jsonify({
-        "state": room.get_state(
-            pid=pid
-        ) if room else {}
-    })
-
-
-# ============================================================
-# CHAT
-# ============================================================
-
-@app.route("/api/chat", methods=["POST"])
-def post_chat():
-
-    data = request.json or {}
-
-    room = ROOMS.get(
-        data.get("room")
-    )
-
-    pid = data.get("pid")
-
-    msg = (
-        data.get("msg", "")
-        .strip()
-    )
-
-    if (
-        room
-        and pid in room.players
-        and msg
-    ):
-
-        room.chat_counter += 1
-
-        room.chat_history.append({
-            "id": room.chat_counter,
-            "name": room.players[pid]["name"],
-            "msg": moderate_text(
-                msg[:100]
-            )
-        })
-
-    return jsonify({
-        "state": room.get_state(
-            int(
-                data.get(
-                    "last_chat_id",
-                    0
-                )
-            ),
-            pid=pid
-        ) if room else {}
-    })
-
-
-# ============================================================
-# GAME SWITCH
-# ============================================================
-
-@app.route("/api/game_switch", methods=["POST"])
-def game_switch():
-
-    data = request.json or {}
-
-    room = ROOMS.get(
-        data.get("room")
-    )
-
-    pid = data.get("pid")
-
-    gt = data.get(
-        "game_type"
-    )
-
-    valid_games = {
-        "anagram",
-        "twenty_questions",
-        "blackjack"
-    }
-
-    if (
-        room
-        and pid in room.players
-        and room.players[pid]["is_host"]
-        and not room.game_locked
-        and gt in valid_games
-    ):
-
-        room.game_type = gt
-        room.game_locked = True
-
-        # Reset scores when a new game is selected
-        for player in room.players.values():
-            player["score"] = 0
-            player["current_round_words"] = []
-            player["ready"] = False
-            player["last_breakdown"] = None
-
-        room.generate_new_round()
-
-    return jsonify({
-        "state": room.get_state(
-            pid=pid
-        ) if room else {}
-    })
-
-
-# ============================================================
-# ANAGRAM HOST CONTROL
-# ============================================================
-
-@app.route("/api/control", methods=["POST"])
-def control_timer():
-
-    data = request.json or {}
-
-    room = ROOMS.get(
-        data.get("room")
-    )
-
-    pid = data.get("pid")
-    action = data.get("action")
-
-    if (
-        not room
-        or pid not in room.players
-        or not room.players[pid]["is_host"]
-    ):
-        return jsonify({
-            "status": "denied"
-        })
-
-    if (
-        action == "pause"
-        and room.game_type == "anagram"
-    ):
-
-        if room.timer_active:
-
-            room.time_left = max(
-                0,
-                int(
-                    room.end_timestamp
-                    - time.time()
-                )
-            )
-
-            room.timer_active = False
-
-            for p in room.players.values():
-                p["ready"] = False
-
-    elif (
-        action == "limit"
-        and room.game_type == "anagram"
-    ):
-
-        room.time_limit = max(
-            10,
-            int(
-                data.get(
-                    "limit",
-                    60
-                )
-            )
-        )
-
-        room.generate_new_round()
-
-    elif (
-        action == "skip"
-        and room.game_type == "anagram"
-    ):
-
-        room.evaluate_round_conclusion(
-            skipped=True
-        )
-
-    return jsonify({
-        "state": room.get_state(
-            pid=pid
-        )
-    })
-
-
-# ============================================================
-# 20 QUESTIONS
-# ============================================================
-
-@app.route("/api/tq_action", methods=["POST"])
-def tq_action():
-
-    data = request.json or {}
-
-    room = ROOMS.get(
-        data.get("room")
-    )
-
-    pid = data.get("pid")
-    action = data.get("action")
-
-    if (
-        not room
-        or pid not in room.players
-        or room.game_type != "twenty_questions"
-    ):
-        return jsonify({
-            "status": "denied"
-        })
-
-    # --------------------------------------------------------
-    # Start a new round
-    # --------------------------------------------------------
-
-    if (
-        action == "become_thinker"
-        and room.tq_status in [
-            "waiting_thinker",
-            "won"
-        ]
-    ):
-
-        room.tq_thinker_pid = pid
-        room.tq_secret_word = ""
-        room.tq_questions = []
-        room.tq_question_counter = 0
-        room.tq_status = "waiting_word"
-        room.round_id += 1
-
-    # --------------------------------------------------------
-    # Set secret word
-    # --------------------------------------------------------
-
-    elif (
-        action == "set_word"
-        and room.tq_thinker_pid == pid
-        and room.tq_status == "waiting_word"
-    ):
-
-        word = (
-            data.get("word", "")
-            .strip()
-            .lower()
-        )
-
-        if word:
-
-            room.tq_secret_word = word
-            room.tq_status = "active"
-
-    # --------------------------------------------------------
-    # Ask question
-    # --------------------------------------------------------
-
-    elif action == "ask_question":
-
-        if (
-            room.tq_status == "active"
-            and len(room.tq_questions) < 20
-            and pid != room.tq_thinker_pid
-        ):
-
-            room.tq_question_counter += 1
-
-            room.tq_questions.append({
-                "id": room.tq_question_counter,
-                "pid": pid,
-                "name": room.players[pid]["name"],
-                "text": str(
-                    data.get(
-                        "text",
-                        ""
-                    )
-                )[:200],
-                "answer": None
-            })
-
-    # --------------------------------------------------------
-    # Answer question
-    # --------------------------------------------------------
-
-    elif (
-        action == "answer_question"
-        and room.tq_thinker_pid == pid
-    ):
-
-        qid = data.get("qid")
-        ans = data.get("answer")
-
-        allowed_answers = {
-            "Yes",
-            "No",
-            "Maybe",
-            "Correct"
-        }
-
-        if ans not in allowed_answers:
-            return jsonify({
-                "state": room.get_state(
-                    pid=pid
-                )
-            })
-
-        for q in room.tq_questions:
-
-            if q["id"] == qid:
-                q["answer"] = ans
-
-        if ans == "Correct":
-            room.tq_status = "won"
-
-    return jsonify({
-        "state": room.get_state(
-            pid=pid
-        )
-    })
-
-
-# ============================================================
-# BLACKJACK ACTION
-# ============================================================
-
-@app.route("/api/blackjack_action", methods=["POST"])
-def blackjack_action():
-
-    data = request.json or {}
-
-    room = ROOMS.get(
-        data.get("room")
-    )
-
-    pid = data.get("pid")
-    action = data.get("action")
-
-    if (
-        not room
-        or pid not in room.players
-        or room.game_type != "blackjack"
-    ):
-        return jsonify({
-            "status": "denied"
-        })
-
-    # --------------------------------------------------------
-    # HIT
-    # --------------------------------------------------------
-
-    if action == "hit":
-
-        success, error = room.blackjack_hit(
-            pid
-        )
-
-        if not success:
-
-            return jsonify({
-                "status": "error",
-                "message": error,
-                "state": room.get_state(
-                    pid=pid
-                )
-            })
-
-    # --------------------------------------------------------
-    # STAND
-    # --------------------------------------------------------
-
-    elif action == "stand":
-
-        success, error = room.blackjack_stand(
-            pid
-        )
-
-        if not success:
-
-            return jsonify({
-                "status": "error",
-                "message": error,
-                "state": room.get_state(
-                    pid=pid
-                )
-            })
-
-    # --------------------------------------------------------
-    # NEW ROUND
-    # --------------------------------------------------------
-
-    elif action == "new_round":
-
-        if (
-            room.bj_status != "finished"
-            or not room.players[pid]["is_host"]
-        ):
-
-            return jsonify({
-                "status": "denied",
-                "state": room.get_state(
-                    pid=pid
-                )
-            })
-
-        room.start_blackjack_round()
-
-    else:
-
-        return jsonify({
-            "status": "error",
-            "message": "Unknown Blackjack action.",
-            "state": room.get_state(
-                pid=pid
-            )
-        })
-
-    return jsonify({
-        "status": "ok",
-        "state": room.get_state(
-            pid=pid
-        )
-    })
-
-
-# ============================================================
-# RUN
-# ============================================================
-
-if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=5001,
-        debug=False
-    )
+from flask import Flask,render_template,request,jsonify
+app=Flask(__name__,template_folder=os.path.join(os.path.dirname(__file__),"templates"));app.config["SECRET_KEY"]=os.urandom(24).hex()
+DF=os.path.join(os.path.dirname(__file__),"dictionary_filtered.txt")
+WORDS=set()
+if os.path.exists(DF):
+ with open(DF,encoding="utf-8") as f: WORDS={x.strip().lower() for x in f if x.strip()}
+BASE=[x for x in WORDS if len(x)==6] or ["action","actors","advice","angels","artist","assets","backed","baking"]
+PAIRS=[("apple","pear"),("dog","wolf"),("cat","tiger"),("beach","desert"),("school","university"),("coffee","tea"),("pizza","burger"),("football","rugby"),("basketball","netball"),("car","motorcycle"),("train","bus"),("ocean","river"),("mountain","hill"),("summer","winter"),("doctor","nurse"),("movie","tv"),("phone","computer"),("book","magazine"),("cake","cookie"),("lion","tiger"),("snake","lizard"),("airport","station"),("hotel","house"),("fire","smoke"),("rain","snow"),("sun","moon"),("king","queen"),("teacher","student"),("guitar","piano")]
+SUITS=["♠","♥","♦","♣"];RANKS=["2","3","4","5","6","7","8","9","10","J","Q","K","A"];RV={r:i+2 for i,r in enumerate(RANKS)}
+def card(r,s): return {"rank":r,"suit":s}
+def deck(): return [card(r,s) for s in SUITS for r in RANKS]
+def value(h):
+ v=sum(min(RV[c["rank"]],10) for c in h);a=sum(c["rank"]=="A" for c in h)
+ while a and v+10<=21:v+=10;a-=1
+ return v
+def poker_eval(cs):
+ vals=sorted((RV[c["rank"]] for c in cs),reverse=True);cnt=Counter(vals);suits=[c["suit"] for c in cs];u=sorted(set(vals),reverse=True)
+ if 14 in u:u.append(1)
+ st=max((u[i] for i in range(len(u)-4) if u[i]-u[i+4]==4),default=0)
+ fs=next((s for s in SUITS if suits.count(s)>=5),None)
+ if fs:
+  fv=sorted((RV[c["rank"]] for c in cs if c["suit"]==fs),reverse=True)
+  if 14 in fv:fv.append(1)
+  sf=max((fv[i] for i in range(len(fv)-4) if fv[i]-fv[i+4]==4),default=0)
+  if sf:return (8,sf)
+ q=sorted((v for v,n in cnt.items() if n==4),reverse=True)
+ if q:return (7,q[0],max(v for v in vals if v!=q[0]))
+ t=sorted((v for v,n in cnt.items() if n>=3),reverse=True);p=sorted((v for v,n in cnt.items() if n>=2),reverse=True)
+ if t and len(p)>1:return (6,t[0],max(v for v in p if v!=t[0]))
+ if fs:return (5,*sorted((RV[c["rank"]] for c in cs if c["suit"]==fs),reverse=True)[:5])
+ if st:return (4,st)
+ if t:
+  k=sorted((v for v in vals if v!=t[0]),reverse=True)[:2];return (3,t[0],*k)
+ if len(p)>1:
+  k1,k2=p[:2];return (2,k1,k2,max(v for v in vals if v not in (k1,k2)))
+ if p:
+  k=sorted((v for v in vals if v!=p[0]),reverse=True)[:3];return (1,p[0],*k)
+ return (0,*vals[:5])
+def mod(t):
+ for p in [r"crap",r"sh+it",r"f+u+c+k",r"b+i+t+c+h",r"a+s+s+h+o+l+e",r"d+i+c+k"]:t=re.sub(p,lambda m:"*"*len(m.group()),str(t),flags=re.I)
+ return t
+class Room:
+ def __init__(self,rid):
+  self.id=rid;self.game="unselected";self.locked=False;self.players={};self.chat=[];self.chat_id=0;self.time_limit=60;self.time_left=60;self.end=0;self.timer=False;self.countdown=False;self.countend=0;self.round=0
+  self.tq={};self.imp={};self.bj={};self.poker={};self.timer=False;self.countdown=False;self.time_left=60;self.countend=0;self.round=0;self.new_round()
+ def reset_scores(self):
+  for p in self.players.values():p.update(score=0,words=[],ready=False,last_breakdown=None)
+ def new_round(self):
+  if self.game=="anagram":
+   self.base=random.choice(BASE);a=list(self.base)
+   while "".join(a)==self.base:random.shuffle(a)
+   self.letters=a;bc=Counter(self.base);self.valid={w for w in WORDS if 3<=len(w)<=6 and all(Counter(w)[c]<=bc[c] for c in Counter(w))};self.timer=False;self.countdown=False;self.time_left=self.time_limit;self.end=0
+  elif self.game=="twenty_questions":self.tq={"thinker":None,"word":"","questions":[],"status":"waiting_thinker","qid":0}
+  elif self.game=="imposter":self.imp={"status":"waiting","main":"","fake":"","imp":None,"order":[],"turn":0,"clues":[],"votes":{},"result":None}
+  elif self.game=="blackjack":self.start_bj()
+  elif self.game=="poker":self.start_poker()
+  for p in self.players.values():p["words"]=[];p["ready"]=False;p["last_breakdown"]=None
+  self.round+=1
+ def start_bj(self):
+  d=deck();random.shuffle(d);self.bj={"deck":d,"dealer":[d.pop(),d.pop()],"status":"playing"}
+  for p in self.players.values():p["bj_hand"]=[d.pop(),d.pop()];p["bj_status"]="blackjack" if value(p["bj_hand"])==21 else "playing";p["bj_result"]=None
+  self.resolve_bj()
+ def resolve_bj(self):
+  if any(p.get("bj_status")=="playing" for p in self.players.values()):return
+  self.bj["status"]="dealer"
+  while value(self.bj["dealer"])<17:self.bj["dealer"].append(self.bj["deck"].pop())
+  dv=value(self.bj["dealer"])
+  for p in self.players.values():
+   pv=value(p["bj_hand"]);st=p["bj_status"]
+   if st=="blackjack":r,pts="blackjack",15
+   elif st=="bust":r,pts="lose",0
+   elif dv>21 or pv>dv:r,pts="win",10
+   elif pv==dv:r,pts="push",5
+   else:r,pts="lose",0
+   p["bj_result"]=r;p["score"]+=pts
+  self.bj["status"]="finished"
+ def bj_action(self,pid,a):
+  if self.bj["status"]!="playing":return "Round is finished."
+  p=self.players[pid]
+  if p.get("bj_status")!="playing":return "You cannot act."
+  if a=="hit":
+   p["bj_hand"].append(self.bj["deck"].pop());v=value(p["bj_hand"]);p["bj_status"]="bust" if v>21 else ("stand" if v==21 else "playing")
+  elif a=="stand":p["bj_status"]="stand"
+  else:return "Invalid action."
+  self.resolve_bj();return ""
+ def start_poker(self):
+  ids=list(self.players)
+  if len(ids)<2:self.poker={"phase":"waiting","dealer":0,"current":None,"deck":[]};return
+  for p in self.players.values():p["chips"]=p.get("chips",1000) or 1000
+  po={"phase":"preflop","dealer":self.poker.get("dealer",-1)+1 if self.poker else 0,"current":None,"deck":deck(),"community":[],"pot":0,"bet":0,"minraise":20,"folded":set(),"allin":set(),"acted":set(),"results":{}}
+  po["dealer"]%=len(ids);random.shuffle(po["deck"])
+  for p in self.players.values():p["pocket"]= [po["deck"].pop(),po["deck"].pop()];p["pbet"]=0;p["pstatus"]="playing"
+  sb=(po["dealer"]+1)%len(ids);bb=(po["dealer"]+2)%len(ids) if len(ids)>2 else (po["dealer"]+1)%len(ids)
+  self.take_bet(ids[sb],min(10,self.players[ids[sb]]["chips"]));self.take_bet(ids[bb],min(20,self.players[ids[bb]]["chips"]));po["bet"]=max(p["pbet"] for p in self.players.values());po["current"]=self.next_active(ids,bb);self.poker=po;self.check_poker()
+ def take_bet(self,pid,n):
+  p=self.players[pid];n=max(0,min(n,p["chips"]));p["chips"]-=n;p["pbet"]+=n;self.poker["pot"]+=n
+  if p["chips"]==0:self.poker["allin"].add(pid)
+ def next_active(self,ids,start):
+  for i in range(1,len(ids)+1):
+   x=ids[(ids.index(start)+i)%len(ids)]
+   if x not in self.poker["folded"] and x not in self.poker["allin"]:return x
+  return None
+ def poker_action(self,pid,a,amt):
+  po=self.poker
+  if po.get("phase") not in ("preflop","flop","turn","river") or po.get("current")!=pid:return "Not your turn."
+  p=self.players[pid];to=po["bet"]-p["pbet"]
+  if a=="fold":po["folded"].add(pid);p["pstatus"]="folded"
+  elif a=="check":
+   if to:return "You must call or raise."
+  elif a=="call":self.take_bet(pid,to)
+  elif a in ("raise","allin"):
+   target=p["pbet"]+p["chips"] if a=="allin" else max(po["bet"]+po["minraise"],int(amt or 0));add=max(0,target-p["pbet"])
+   self.take_bet(pid,add)
+   if target>po["bet"]:po["minraise"]=max(po["minraise"],target-po["bet"]);po["bet"]=target
+  else:return "Invalid action."
+  po["acted"].add(pid);self.check_poker();return ""
+ def check_poker(self):
+  po=self.poker;ids=list(self.players);active=[x for x in ids if x not in po.get("folded",set())]
+  if len(active)==1:
+   w=active[0];self.players[w]["chips"]+=po["pot"];po["results"]={w:"win"};po["pot"]=0;po["phase"]="finished";po["current"]=None;return
+  need=[x for x in active if x not in po["allin"]]
+  if po["current"] is not None and need and not all(x in po["acted"] and self.players[x]["pbet"]==po["bet"] for x in need):return
+  for p in self.players.values():p["pbet"]=0
+  po["bet"]=0;po["acted"]=set();self.advance_poker()
+ def advance_poker(self):
+  po=self.poker
+  if po["phase"]=="preflop":po["community"] += [po["deck"].pop() for _ in range(3)];po["phase"]="flop"
+  elif po["phase"]=="flop":po["community"].append(po["deck"].pop());po["phase"]="turn"
+  elif po["phase"]=="turn":po["community"].append(po["deck"].pop());po["phase"]="river"
+  elif po["phase"]=="river":self.showdown();return
+  active=[x for x in self.players if x not in po["folded"] and x not in po["allin"]];po["current"]=self.next_active(list(self.players),po["dealer"]) if active else None
+  if po["current"] is None:self.advance_poker()
+ def showdown(self):
+  po=self.poker;active=[x for x in self.players if x not in po["folded"]];scores={x:poker_eval(self.players[x]["pocket"]+po["community"]) for x in active};best=max(scores.values());wins=[x for x,v in scores.items() if v==best];share=po["pot"]//len(wins);rem=po["pot"]%len(wins)
+  for i,w in enumerate(wins):self.players[w]["chips"]+=share+(i<rem);po["results"][w]="win"
+  for x in active:
+   if x not in wins:po["results"][x]="lose"
+  po["pot"]=0;po["phase"]="finished";po["current"]=None
+ def imp_start(self):
+  if len(self.players)<3:return False
+  a,b=random.choice(PAIRS);ids=list(self.players);random.shuffle(ids);self.imp={"status":"clues","main":a,"fake":b,"imp":ids[0],"order":ids,"turn":0,"clues":[],"votes":{},"result":None}
+  for x in ids:self.players[x]["imp_word"]=b if x==ids[0] else a
+  return True
+ def imp_action(self,pid,a,d):
+  x=self.imp
+  if a=="start":return (self.imp_start(),"Need at least 3 players." if len(self.players)<3 else "") if self.players[pid]["is_host"] else (False,"Host only.")
+  if a=="clue":
+   if x["status"]!="clues" or x["order"][x["turn"]]!=pid:return False,"Not your turn."
+   c=mod(str(d.get("clue","")).strip())[:30]
+   if not c:return False,"Enter a clue."
+   x["clues"].append({"pid":pid,"name":self.players[pid]["name"],"clue":c});x["turn"]+=1
+   if x["turn"]>=len(x["order"]):x["status"]="voting"
+   return True,""
+  if a=="vote":
+   t=d.get("target")
+   if x["status"]!="voting" or t==pid or t not in self.players:return False,"Invalid vote."
+   x["votes"][pid]=t
+   if len(x["votes"])==len(self.players):self.imp_resolve()
+   return True,""
+  if a=="next_round" and self.players[pid]["is_host"] and x["status"]=="result":self.new_round();return True,""
+  return False,"Invalid action."
+ def imp_resolve(self):
+  c=Counter(self.imp["votes"].values());m=max(c.values());leaders=[x for x,n in c.items() if n==m];caught=len(leaders)==1 and leaders[0]==self.imp["imp"]
+  if caught:
+   for pid,t in self.imp["votes"].items():
+    if t==self.imp["imp"]:self.players[pid]["score"]+=2
+  else:self.players[self.imp["imp"]]["score"]+=3
+  self.imp["result"]={"imp":self.imp["imp"],"name":self.players[self.imp["imp"]]["name"],"caught":caught,"votes":dict(c),"main":self.imp["main"],"fake":self.imp["fake"]};self.imp["status"]="result"
+ def tq_action(self,pid,a,d):
+  t=self.tq
+  if a=="become_thinker" and (not t["thinker"] or t["status"]=="won"):t.update(thinker=pid,word="",questions=[],status="waiting_word",qid=0)
+  elif a=="set_word" and t["thinker"]==pid and d.get("word"):t["word"]=str(d["word"]).strip().lower();t["status"]="active"
+  elif a=="ask_question" and t["status"]=="active" and len(t["questions"])<20:t["qid"]+=1;t["questions"].append({"id":t["qid"],"pid":pid,"name":self.players[pid]["name"],"text":str(d.get("text",""))[:100],"answer":None})
+  elif a=="answer_question" and t["thinker"]==pid:
+   for q in t["questions"]:
+    if q["id"]==d.get("qid"):q["answer"]=d.get("answer")
+   if d.get("answer")=="Correct":t["status"]="won"
+ def timer_check(self):
+  if self.game!="anagram":return
+  if self.countdown and time.time()>=self.countend:self.countdown=False;self.timer=True;self.end=time.time()+self.time_left
+  if self.timer:
+   self.time_left=int(self.end-time.time())
+   if self.time_left<=0:self.end_anagram()
+ def end_anagram(self,skip=False):
+  pts={3:100,4:400,5:1200,6:2000}
+  for p in self.players.values():
+   bd=[]
+   for w in dict.fromkeys(p.get("words",[])):
+    ok=w in self.valid;n=pts.get(len(w),0) if ok else 0;p["score"]+=n;bd.append({"word":w,"valid":ok,"points":n})
+   p["last_breakdown"]={"breakdown":bd,"round_word":self.base,"skipped":skip}
+  self.new_round()
+ def ready(self):
+  if self.game=="anagram" and self.players and all(p["ready"] for p in self.players.values()) and not self.timer and not self.countdown:
+   for p in self.players.values():p["words"]=[];p["last_breakdown"]=None
+   self.countdown=True;self.countend=time.time()+3
+ def state(self,pid,last_chat=0):
+  self.timer_check();pl=sorted(self.players.items(),key=lambda z:(-z[1]["score"],z[1]["name"].lower()));x=self.imp;b=self.bj;po=self.poker
+  s={"game_type":self.game,"game_locked":self.locked,"letters":getattr(self,"letters",["?"]*6) if self.timer else ["?"]*6,"time_left":max(0,int(self.countend-time.time())) if self.countdown else self.time_left,"timer_active":self.timer,"countdown_active":self.countdown,"round_id":self.round,"new_chats":[c for c in self.chat if c["id"]>last_chat],"leaderboard":[{"sid":i,"name":p["name"],"score":p["score"],"is_host":p["is_host"],"ready":p["ready"]} for i,p in pl],"tq_thinker_pid":self.tq.get("thinker"),"tq_secret_word":self.tq.get("word") if self.tq.get("status")=="won" else ("???" if self.tq.get("word") else ""),"tq_status":self.tq.get("status"),"tq_questions":self.tq.get("questions",[])}
+  s.update(imp_status=x.get("status"),imp_round_ready=len(self.players)>=3,imp_your_word=self.players.get(pid,{}).get("imp_word"),imp_current_turn=x.get("order",[])[x.get("turn",0)] if x.get("status")=="clues" and x.get("turn",0)<len(x.get("order",[])) else None,imp_clues=x.get("clues",[]),imp_players=[{"pid":i,"name":p["name"]} for i,p in self.players.items()],imp_votes=x.get("votes",{}) if x.get("status")=="result" else {},imp_result=x.get("result"),imp_is_imposter=pid==x.get("imp") if pid else False)
+  s["blackjack"]={"status":b.get("status"),"dealer_hand":[b["dealer"][0],{"rank":"?","suit":"?"}] if b.get("status")=="playing" else b.get("dealer",[]),"dealer_value":value(b["dealer"]) if b.get("status")!="playing" and b.get("dealer") else None,"your_hand":self.players.get(pid,{}).get("bj_hand",[]),"your_value":value(self.players.get(pid,{}).get("bj_hand",[])) if pid in self.players and self.players[pid].get("bj_hand") else None,"your_status":self.players.get(pid,{}).get("bj_status"),"your_result":self.players.get(pid,{}).get("bj_result"),"can_hit":b.get("status")=="playing" and self.players.get(pid,{}).get("bj_status")=="playing","can_stand":b.get("status")=="playing" and self.players.get(pid,{}).get("bj_status")=="playing","players":[{"sid":i,"name":p["name"],"cards":len(p.get("bj_hand",[])),"status":p.get("bj_status","waiting"),"result":p.get("bj_result")} for i,p in self.players.items()]}
+  s["poker"]={"phase":po.get("phase"),"community":po.get("community",[]),"pot":po.get("pot",0),"current":po.get("current"),"bet":po.get("bet",0),"your_hand":self.players.get(pid,{}).get("pocket",[]),"your_chips":self.players.get(pid,{}).get("chips",1000),"your_bet":self.players.get(pid,{}).get("pbet",0),"can_act":po.get("current")==pid,"players":[{"pid":i,"name":p["name"],"chips":p.get("chips",1000),"bet":p.get("pbet",0),"status":"folded" if i in po.get("folded",set()) else ("all-in" if i in po.get("allin",set()) else ("turn" if i==po.get("current") else "playing"))} for i,p in self.players.items()],"results":po.get("results",{})}
+  return s
+ROOMS={}
+@app.get("/")
+def index():return render_template("index.html")
+@app.post("/api/join")
+def join():
+ d=request.json or {};rid=(d.get("room") or "lounge").strip() or "lounge";pid=d.get("pid") or os.urandom(8).hex()
+ if rid not in ROOMS:ROOMS[rid]=Room(rid)
+ r=ROOMS[rid];r.players[pid]={"name":str(d.get("name") or "User").strip()[:15] or "User","score":0,"words":[],"ready":False,"is_host":not r.players,"last_seen":time.time(),"last_breakdown":None,"chips":1000}
+ return jsonify(pid=pid,is_host=r.players[pid]["is_host"],state=r.state(pid))
+@app.post("/api/sync")
+def sync():
+ d=request.json or {};r=ROOMS.get(d.get("room"));pid=d.get("pid")
+ if not r or pid not in r.players:return jsonify(error="Expired"),404
+ p=r.players[pid];p["last_seen"]=time.time()
+ if r.game=="anagram" and r.timer:p["words"]=[str(x).strip().lower() for x in d.get("buffered_words",[])]
+ r.ready();bd=p.get("last_breakdown");p["last_breakdown"]=None
+ return jsonify(state=r.state(pid,int(d.get("last_chat_id",0))),breakdown=bd,is_host=p["is_host"])
+@app.post("/api/ready")
+def ready():
+ d=request.json;r=ROOMS.get(d.get("room"));pid=d.get("pid")
+ if r and pid in r.players:r.players[pid]["ready"]=not r.players[pid]["ready"];r.ready()
+ return jsonify(state=r.state(pid))
+@app.post("/api/chat")
+def chat():
+ d=request.json;r=ROOMS.get(d.get("room"));pid=d.get("pid");m=str(d.get("msg","")).strip()
+ if r and pid in r.players and m:r.chat_id+=1;r.chat.append({"id":r.chat_id,"name":r.players[pid]["name"],"msg":mod(m[:100])})
+ return jsonify(state=r.state(pid,int(d.get("last_chat_id",0))))
+@app.post("/api/game_switch")
+def switch():
+ d=request.json;r=ROOMS.get(d.get("room"));pid=d.get("pid");g=d.get("game_type")
+ if r and pid in r.players and r.players[pid]["is_host"] and not r.locked and g in ("anagram","twenty_questions","blackjack","imposter","poker"):
+  r.reset_scores();r.game=g;r.locked=True
+  if g=="poker":
+   for p in r.players.values():p["chips"]=1000
+  r.new_round()
+ return jsonify(state=r.state(pid))
+@app.post("/api/control")
+def control():
+ d=request.json;r=ROOMS.get(d.get("room"));pid=d.get("pid")
+ if not r or pid not in r.players or not r.players[pid]["is_host"]:return jsonify(status="denied")
+ a=d.get("action")
+ if a=="pause" and r.game=="anagram" and r.timer:r.time_left=max(0,int(r.end-time.time()));r.timer=False
+ elif a=="limit" and r.game=="anagram":r.time_limit=max(10,int(d.get("limit",60)));r.new_round()
+ elif a=="skip" and r.game=="anagram":r.end_anagram(True)
+ return jsonify(state=r.state(pid))
+@app.post("/api/tq_action")
+def tq():
+ d=request.json;r=ROOMS.get(d.get("room"));pid=d.get("pid")
+ if not r or pid not in r.players or r.game!="twenty_questions":return jsonify(status="denied")
+ r.tq_action(pid,d.get("action"),d);return jsonify(state=r.state(pid))
+@app.post("/api/blackjack_action")
+def bj():
+ d=request.json;r=ROOMS.get(d.get("room"));pid=d.get("pid")
+ if not r or pid not in r.players or r.game!="blackjack":return jsonify(status="denied")
+ a=d.get("action")
+ if a=="new_round":
+  if r.players[pid]["is_host"] and r.bj.get("status")=="finished":r.new_round()
+  else:return jsonify(message="Only the host can start the next round.",state=r.state(pid))
+ else:
+  m=r.bj_action(pid,a)
+  if m:return jsonify(message=m,state=r.state(pid))
+ return jsonify(state=r.state(pid))
+@app.post("/api/imposter_action")
+def imp():
+ d=request.json;r=ROOMS.get(d.get("room"));pid=d.get("pid")
+ if not r or pid not in r.players or r.game!="imposter":return jsonify(status="denied")
+ ok,msg=r.imp_action(pid,d.get("action"),d);return jsonify(status="ok" if ok else "error",message=msg,state=r.state(pid))
+@app.post("/api/poker_action")
+def poker():
+ d=request.json;r=ROOMS.get(d.get("room"));pid=d.get("pid")
+ if not r or pid not in r.players or r.game!="poker":return jsonify(status="denied")
+ a=d.get("action")
+ if a=="new_round":
+  if r.players[pid]["is_host"] and r.poker.get("phase")=="finished":r.new_round()
+  else:return jsonify(message="Only the host can start the next hand.",state=r.state(pid))
+ elif a=="start":
+  if r.players[pid]["is_host"] and r.poker.get("phase")=="waiting":r.new_round()
+ else:
+  m=r.poker_action(pid,a,d.get("amount",0))
+  if m:return jsonify(message=m,state=r.state(pid))
+ return jsonify(state=r.state(pid))
+if __name__=="__main__":app.run(host="0.0.0.0",port=5001,debug=False)
