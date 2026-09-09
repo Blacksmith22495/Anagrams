@@ -25,14 +25,14 @@ async function impAction(a,b={}){let d=await api("/api/imposter_action",{room,pi
 function poker(s){
  let p=s.poker;
  if(p.phase==="waiting"){
-  $("pokerbox").innerHTML=`<h2>Texas Hold'em</h2><p>2 players are enough to start a heads-up game. Add more players for a full table.</p>${host&&p.players?.length>=2?'<button class="b" id="startp">Start hand</button>':''}`;
+  $("pokerbox").innerHTML=`<h2>Texas Hold'em</h2><p>At least 2 players are required.</p>${host&&p.players?.length>=2?'<button class="b" id="startp">Start hand</button>':''}`;
   $("startp")?.addEventListener("click",()=>pAction("start"));return;
  }
  let h=`<div class="poker"><div class="pot">Pot: ${p.pot} chips</div><div class="cards community">${cards(p.community)}</div><p class="status">${p.phase.toUpperCase()} ${p.current===pid?"— YOUR TURN":""}</p><div class="cards">${cards(p.your_hand)}</div><p class="status">Your chips: ${p.your_chips} | Current bet: ${p.your_bet}</p>`;
  if(p.can_act)h+=`<div class="row"><button class="r" id="fold">Fold</button><button class="s" id="check">${p.bet>p.your_bet?"Call":"Check"}</button><button class="b" id="raise">Raise</button><button class="y" id="allin">All-in</button></div>`;
  else h+=`<p class="muted" style="text-align:center">Waiting for another player...</p>`;
- if(p.phase==="finished"){let w=p.players.find(x=>p.results[x.pid]==="win");h+=`<div class="result">Hand finished${w?` — winner: ${esc(w.name)}`:""}</div>${host?'<button class="g" id="nextp">Next hand</button>':'<p class="muted">Waiting for host...</p>'}`}
- h+=`</div><h3>Players</h3>`+(p.players||[]).map(x=>`<div class="seat"><span>${esc(x.name)}${x.pid===pid?" (You)":""}</span><span>${x.chips} chips · ${x.status}</span></div>`).join("");
+ if(p.phase==="finished"){let w=p.players.filter(x=>p.results[x.pid]==="win");h+=`<div class="result">${w.length?w.map(x=>`${esc(x.name)} wins ${p.winner_pot||0} chips`).join(" & "):"Hand finished"}</div>`+(p.players||[]).filter(x=>p.hand_scores[x.pid]).map(x=>`<div class="seat"><span>${esc(x.name)}${x.pid===pid?" (You)":""}</span><span>${esc(p.hand_scores[x.pid].name)}</span></div>`).join("")+`${host?'<button class="g" id="nextp">Next hand</button>':'<p class="muted">Waiting for host...</p>'}`}
+ h+=`</div><h3>Players</h3>`+(p.players||[]).map(x=>`<div class="seat"><span>${x.pid===p.dealer_pid?"D ":""}${esc(x.name)}${x.pid===pid?" (You)":""}</span><span>${x.chips} chips · ${x.status}</span></div>`).join("");
  $("pokerbox").innerHTML=h;
  $("fold")?.addEventListener("click",()=>pAction("fold"));
  $("check")?.addEventListener("click",()=>pAction(p.bet>p.your_bet?"call":"check"));
